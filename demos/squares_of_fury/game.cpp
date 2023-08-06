@@ -2,13 +2,18 @@
 #include "anyfin/base.hpp"
 
 #include "anyfin/runtime/runtime.hpp"
+#include "anyfin/runtime/status_code.hpp"
 
-int game_main () {
-  create_window_system();
+#include "anyfin/window/window.hpp"
+
+Status_Code game_main () {
+  use(Status_Code);
+  
+  create_window_system("Squares of Fury");
 
   while (true) {
-    pump_platform_events();
+    if (pump_window_events()) break;
   }
 
-  return 0;
+  return Success;
 }

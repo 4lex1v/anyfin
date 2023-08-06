@@ -28,3 +28,5 @@ using psize = usize;
 #define stringify(X) stringify2(X)
 
 #define flag(N) 1 << (N)
+
+#define use(ENUM) using enum ENUM::Value

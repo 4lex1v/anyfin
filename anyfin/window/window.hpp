@@ -3,4 +3,8 @@
 
 #include "anyfin/base.hpp"
 
-void create_window_system ();
+struct Status_Code;
+
+Status_Code create_window_system (const char *title);
+
+bool pump_window_events ();
