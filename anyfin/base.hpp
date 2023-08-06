@@ -28,6 +28,3 @@ using psize = usize;
 #define stringify(X) stringify2(X)
 
 #define flag(N) 1 << (N)
-
-#define min(A, B) (((A) < (B)) ? (A) : (B))
-

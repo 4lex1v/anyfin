@@ -1,7 +1,14 @@
 
-#include "anyfin/runtime.hpp"
+#include "anyfin/base.hpp"
+
+#include "anyfin/runtime/runtime.hpp"
 
 int game_main () {
-  print("Drawing a frame\n");
+  create_window_system();
+
+  while (true) {
+    pump_platform_events();
+  }
+
   return 0;
 }
