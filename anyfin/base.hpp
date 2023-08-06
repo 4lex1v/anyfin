@@ -30,3 +30,5 @@ using psize = usize;
 #define flag(N) 1 << (N)
 
 #define use(ENUM) using enum ENUM::Value
+
+#define fin_forceinline __attribute__((always_inline))

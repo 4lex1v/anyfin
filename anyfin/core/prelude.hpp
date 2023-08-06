@@ -4,6 +4,7 @@
 #include "anyfin/base.hpp"
 
 #include "anyfin/core/assert.hpp"
+#include "anyfin/core/meta.hpp"
 
 template <typename T, typename... Args>
 constexpr const T & min (const T &first, const Args &... args) {
@@ -41,11 +42,31 @@ template <typename T>
 constexpr T align_forward (const T value, const usize by) {
   assert(is_power_of_2(by));
 
-  if constexpr (!is_pointer_v<T>) return (value + (by - 1)) & ~(by - 1);
-  else return reinterpret_cast<T>((reinterpret_cast<usize>(value) + (by - 1)) & ~(by - 1));
+  if constexpr (!is_pointer<T>)
+    return (value + (by - 1)) & ~(by - 1);
+
+  return reinterpret_cast<T>((reinterpret_cast<usize>(value) + (by - 1)) & ~(by - 1));
 }
 
 struct Memory_Region {
   u8    *memory;
   usize  size;
 };
+
+template <typename Type>
+class Deferrable {
+  Type cleanup;
+
+public:
+  explicit Deferrable (Type &&cb): cleanup{ forward<Type>(cb) } {}
+  ~Deferrable () { cleanup(); }
+};
+
+static struct {
+  template <typename Type>
+  Deferrable<Type> operator << (Type &&cb) {
+    return Deferrable<Type>(forward<Type>(cb));
+  }
+} deferrer;
+
+#define defer auto tokenpaste(__deferred_lambda_call, __COUNTER__) = deferrer << [&]

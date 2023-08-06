@@ -46,3 +46,12 @@ constexpr bool compare_strings (const String &first, const String &second) {
 
   return true;
 }
+
+// template <typename T>
+// concept Has_To_String_Defined = requires (Memory_Arena *arena, T a) {
+//   { to_string(arena, a) } -> std::same_as<String>;
+// };
+
+// template <typename T>
+// concept String_Convertible = std::convertible_to<T, String> || Has_To_String_Defined<T>;
+

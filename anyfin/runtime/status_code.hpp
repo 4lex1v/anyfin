@@ -36,4 +36,8 @@ struct Status_Code {
       error_code { _code },
       details    { _details }
   {}
+
+  bool operator ! () const {
+    return value != Value::Success;
+  }
 };

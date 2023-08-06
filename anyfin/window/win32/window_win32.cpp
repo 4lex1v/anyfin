@@ -3,6 +3,12 @@
 
 #include "anyfin/platform/win32/common_win32.hpp"
 
+#ifdef RHI_OPENGL
+  #include "anyfin/rhi/opengl/win32/opengl_loader_win32.hpp"
+#else
+  #error "Unsupported RHI backend type"
+#endif
+
 static LRESULT CALLBACK window_events_handler (HWND window, UINT message, WPARAM wParam, LPARAM lParam) {
   LRESULT result = 0;
 
@@ -94,11 +100,27 @@ Status_Code create_window_system (const char *title) {
     0, // WS_EX_TOPMOST|WS_EX_LAYERED,
     window_class.lpszClassName,
     title,
-    WS_OVERLAPPEDWINDOW | WS_VISIBLE,
+    WS_OVERLAPPEDWINDOW, //| WS_VISIBLE,
     CW_USEDEFAULT, CW_USEDEFAULT, 1024, 720,
     nullptr, nullptr, app_instance, nullptr);
 
-  if (!window) get_system_error();
+  if (!window) return get_system_error();
+
+  Rhi_Setup_Context rhi_setup_context {
+#ifdef RHI_OPENGL
+    .app_instance = app_instance,
+    .window       = window,
+#endif
+  };
+
+  // TODO: Must communicate this issue to the user
+  if (auto status = setup_rhi_backend(&rhi_setup_context); !status) {
+    DestroyWindow(window);
+    UnregisterClass(window_class.lpszClassName, app_instance);
+    return status;
+  }
+
+  ShowWindow(window, SW_SHOW);
 
   return Success;
 }
