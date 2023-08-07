@@ -1,5 +1,6 @@
 
 #include "anyfin/window/window.hpp"
+#include "anyfin/window/events.hpp"
 
 #include "anyfin/platform/win32/common_win32.hpp"
 
@@ -8,6 +9,8 @@
 #else
   #error "Unsupported RHI backend type"
 #endif
+
+static const usize MAX_SUPPORTED_EVENTS = 256;
 
 static LRESULT CALLBACK window_events_handler (HWND window, UINT message, WPARAM wParam, LPARAM lParam) {
   LRESULT result = 0;
@@ -81,7 +84,7 @@ static LRESULT CALLBACK window_events_handler (HWND window, UINT message, WPARAM
   return result;
 }
 
-Status_Code create_window_system (const char *title) {
+Status_Code create_window_system (const char *title, usize window_width, usize window_height) {
   use(Status_Code);
   
   const auto app_instance = GetModuleHandle(nullptr);
@@ -101,7 +104,7 @@ Status_Code create_window_system (const char *title) {
     window_class.lpszClassName,
     title,
     WS_OVERLAPPEDWINDOW, //| WS_VISIBLE,
-    CW_USEDEFAULT, CW_USEDEFAULT, 1024, 720,
+    CW_USEDEFAULT, CW_USEDEFAULT, window_width, window_height,
     nullptr, nullptr, app_instance, nullptr);
 
   if (!window) return get_system_error();
@@ -125,8 +128,11 @@ Status_Code create_window_system (const char *title) {
   return Success;
 }
 
-bool pump_window_events () {
+bool pump_window_events (System_Event **system_events, usize *events_count) {
   bool quit_requested = false;
+
+  static System_Event buffered_events[MAX_SUPPORTED_EVENTS];
+  usize count = 0;
 
   MSG message;
   while (PeekMessage(&message, nullptr, 0, 0, PM_REMOVE)) {
@@ -135,6 +141,37 @@ bool pump_window_events () {
         quit_requested = true;
         break;
       }
+
+      case WM_SYSKEYDOWN:
+      case WM_SYSKEYUP:
+      case WM_KEYDOWN:
+      case WM_KEYUP: {
+        auto &event = buffered_events[count++];
+        event.tag = System_Event::Keyboard;
+
+        auto &input = event.keyboard;
+
+        input.key_code = static_cast<u8>(message.wParam);
+
+        // {
+        //   // INFO: KeyState is a SHORT that when pressed sets the upper bit to 1
+        //   // https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getkeystate
+        //   const u16 shift   = (GetKeyState(VK_SHIFT) & (1 << 15)) >> 15;
+        //   const u16 alt     = (GetKeyState(VK_MENU) & (1 << 15)) >> 15; 
+        //   const u16 control = (GetKeyState(VK_CONTROL) & (1 << 15)) >> 15;
+
+        //   input.modifiers = pack_modifiers(control, shift, alt);
+        // }
+
+        // {
+        //   const u32 was_down = ((message.lParam & (1 << 30)) != 0);
+        //   const u32 is_down  = ((message.lParam & (1ul << 31)) == 0);
+        //   input.press_state = pack_press_state(was_down, is_down);
+        // }
+          
+        break;
+      }
+
       default: {
         DispatchMessage(&message);
         break;
@@ -142,5 +179,17 @@ bool pump_window_events () {
     }
   }
 
+  *system_events = buffered_events;
+  *events_count  = count;
+
   return quit_requested;
+}
+
+Status_Code present_frame () {
+#ifdef RHI_OPENGL
+  if (!SwapBuffers(wglGetCurrentDC())) return get_system_error();
+#else
+  #error "Unsupported RHI backend"
+#endif
+  return Status_Code::Success;
 }

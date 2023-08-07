@@ -1,13 +1,17 @@
 
 #pragma once
 
-#include <gl/GL.h>
-
 #include "anyfin/base.hpp"
 
-typedef char      GLchar;
-typedef ptrdiff_t GLsizeiptr;
-typedef ptrdiff_t GLintptr;
+#ifdef PLATFORM_WIN32
+  #include "anyfin/platform/win32/common_win32.hpp"
+  #include <wingdi.h>
+  #include <gl/GL.h>
+#endif
+
+typedef char           GLchar;
+typedef ptrdiff_t      GLsizeiptr;
+typedef ptrdiff_t      GLintptr;
 
 enum {
   GL_VERTEX_SHADER            = 0x8B31,

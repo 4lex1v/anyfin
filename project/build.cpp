@@ -5,6 +5,7 @@ extern "C" bool setup_project (const Arguments *args, Project *project) {
   add_global_compiler_options(project,
                               "-std=c++20",
                               "-O0 -g -gcodeview -DDEBUG_BUILD",
+                              "-DPLATFORM_WIN32 -DPLATFORM_X64",
                               "-DRHI_OPENGL");
 
   add_global_include_search_path(project, ".");

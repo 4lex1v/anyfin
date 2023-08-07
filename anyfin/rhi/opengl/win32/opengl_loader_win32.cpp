@@ -30,12 +30,17 @@
 #define WGL_SWAP_EXCHANGE_ARB            0x2028
 #define WGL_COLOR_BITS_ARB               0x2014
 #define WGL_STENCIL_BITS_ARB             0x2023
+#define WGL_CONTEXT_MAJOR_VERSION_ARB             0x2091
+#define WGL_CONTEXT_MINOR_VERSION_ARB             0x2092
+#define WGL_CONTEXT_LAYER_PLANE_ARB               0x2093
+#define WGL_CONTEXT_FLAGS_ARB                     0x2094
+#define WGL_CONTEXT_PROFILE_MASK_ARB              0x9126
+#define WGL_CONTEXT_DEBUG_BIT_ARB                 0x0001
+#define WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB    0x0002
+#define WGL_CONTEXT_CORE_PROFILE_BIT_ARB          0x00000001
+#define WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB 0x00000002
 
 bool gl_check_errors ();
-
-typedef HGLRC (*wgl_create_context_attribs_arb_t) (HDC hDC, HGLRC hShareContext, const int *attribList);
-typedef BOOL  (*wgl_choose_pixel_format_arb_t)    (HDC hdc, const int *piAttribIList, const FLOAT *pfAttribFList, UINT nMaxFormats, int *piFormats, UINT *nNumFormats);
-typedef BOOL  (*wgl_swap_interval_ext_t)          (int interval);
 
 static wgl_choose_pixel_format_arb_t    wglChoosePixelFormatARB;
 
@@ -185,7 +190,24 @@ Status_Code setup_rhi_backend (Rhi_Setup_Context *context) {
 
   const auto dc = GetDC(window);
   setup_window_pixel_format(dc);
-  ReleaseDC(window, dc);
+
+  static int opengl_attributes [] {
+    WGL_CONTEXT_MAJOR_VERSION_ARB,  4,
+    WGL_CONTEXT_MINOR_VERSION_ARB,  6,
+    WGL_CONTEXT_FLAGS_ARB,          WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB | WGL_CONTEXT_DEBUG_BIT_ARB,
+    WGL_CONTEXT_PROFILE_MASK_ARB,   WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
+    0
+  };
+
+  const auto opengl_runtime_render_device = wglCreateContextAttribsARB(dc, nullptr, opengl_attributes);
+  if (!opengl_runtime_render_device) {
+    return Status_Code { Status_Code::Fatal_Error, "Failed to create OpenGL render device" };
+  }
+
+  if (!wglMakeCurrent(dc, opengl_runtime_render_device)) {
+    return Status_Code { Status_Code::Fatal_Error, "Failed to create OpenGL render device" };
+  }
 
   return Success;
 }
+

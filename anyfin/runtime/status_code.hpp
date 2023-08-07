@@ -7,6 +7,7 @@ struct Status_Code {
   enum struct Value: u32 {
     Success,
     System_Error,
+    Fatal_Error,
   };
 
   using enum Value;
@@ -41,3 +42,9 @@ struct Status_Code {
     return value != Value::Success;
   }
 };
+
+#define check_status(EXPR)                      \
+  do {                                          \
+    Status_Code status = (EXPR);                \
+    if (!status) return status;                 \
+  } while (0)
