@@ -3,8 +3,7 @@
 
 #include "anyfin/core/assert.hpp"
 #include "anyfin/core/prelude.hpp"
-
-#include "anyfin/runtime/status_code.hpp"
+#include "anyfin/core/status_code.hpp"
 
 #include "anyfin/platform/win32/common_win32.hpp"
 #include <wingdi.h> // Excluded by default 
@@ -166,6 +165,7 @@ Status_Code setup_rhi_backend (Rhi_Setup_Context *context) {
   link_opengl_proc(glGenVertexArrays);
   link_opengl_proc(glGetProgramiv);
   link_opengl_proc(glGetShaderInfoLog);
+  link_opengl_proc(glGetProgramInfoLog);
   link_opengl_proc(glGetShaderiv);
   link_opengl_proc(glGetUniformLocation);
   link_opengl_proc(glLinkProgram);
@@ -174,6 +174,7 @@ Status_Code setup_rhi_backend (Rhi_Setup_Context *context) {
   link_opengl_proc(glUniform2ui);
   link_opengl_proc(glUniform2uiv);
   link_opengl_proc(glUniform3f);
+  link_opengl_proc(glUniform3fv);
   link_opengl_proc(glUniform4f);
   link_opengl_proc(glUniform4fv);
   link_opengl_proc(glUniformMatrix2fv);

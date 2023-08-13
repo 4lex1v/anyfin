@@ -7,7 +7,7 @@
 
 #include "anyfin/base.hpp"
 
-#include "anyfin/runtime/status_code.hpp"
+struct Status_Code;
 
 template <typename... Args>
 static inline Status_Code get_system_error (Args... args) {

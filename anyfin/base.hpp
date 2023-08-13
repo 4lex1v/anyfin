@@ -18,6 +18,9 @@ using b2 = u16;
 using b4 = u32;
 using b8 = u64;
 
+using f32 = float;
+using f64 = double;
+
 using usize = size_t;
 using psize = usize;
 

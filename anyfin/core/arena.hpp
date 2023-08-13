@@ -2,7 +2,6 @@
 #pragma once
 
 #include "anyfin/base.hpp"
-
 #include "anyfin/core/prelude.hpp"
 
 struct Memory_Arena {
@@ -32,7 +31,7 @@ constexpr T * get_memory_at_current_offset (Memory_Arena &arena, usize alignment
   return reinterpret_cast<T *>(align_forward(arena.memory + arena.offset, alignment));
 }
 
-constexpr char * reserve_memory (Memory_Arena &arena, usize size, usize alignment = alignof(void *)) {
+constexpr u8 * reserve_memory (Memory_Arena &arena, usize size, usize alignment = alignof(void *)) {
   auto base         = arena.memory + arena.offset;
   auto aligned_base = align_forward(base, alignment);
 
@@ -46,7 +45,7 @@ constexpr char * reserve_memory (Memory_Arena &arena, usize size, usize alignmen
   return aligned_base;
 }
 
-constexpr char * reserve_memory_unsafe (Memory_Arena &arena, usize size, usize alignment = alignof(void *)) {
+constexpr u8 * reserve_memory_unsafe (Memory_Arena &arena, usize size, usize alignment = alignof(void *)) {
   auto base         = arena.memory + arena.offset;
   auto aligned_base = align_forward(base, alignment);
 

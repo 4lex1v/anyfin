@@ -2,6 +2,8 @@
 #include "anyfin/window/window.hpp"
 #include "anyfin/window/events.hpp"
 
+#include "anyfin/core/status_code.hpp"
+
 #include "anyfin/platform/win32/common_win32.hpp"
 
 #ifdef RHI_OPENGL
@@ -12,6 +14,13 @@
 
 static const usize MAX_SUPPORTED_EVENTS = 256;
 
+static System_Event buffered_events[MAX_SUPPORTED_EVENTS];
+static usize count = 0;
+
+static System_Event & get_next_event () {
+  return buffered_events[count++];
+}
+
 static LRESULT CALLBACK window_events_handler (HWND window, UINT message, WPARAM wParam, LPARAM lParam) {
   LRESULT result = 0;
 
@@ -19,8 +28,9 @@ static LRESULT CALLBACK window_events_handler (HWND window, UINT message, WPARAM
     // TODO: #window #ux proper support for windows closing experience
     // if (MessageBoxA(window, "Unsafed changes", "The Editor", MB_YESNOCANCEL) == IDYES) {}
     case WM_CLOSE: {
-      // ShowWindow(window, SW_HIDE);
-      // win32_event_bus_push_event(System_Event(Quit_Input_Event()));
+      auto &event = get_next_event();
+      event.tag = System_Event::Quit;
+
       break;
     }
     // TODO: #window #ux proper support for window destruction events
@@ -128,17 +138,16 @@ Status_Code create_window_system (const char *title, usize window_width, usize w
   return Success;
 }
 
-bool pump_window_events (System_Event **system_events, usize *events_count) {
-  bool quit_requested = false;
-
-  static System_Event buffered_events[MAX_SUPPORTED_EVENTS];
-  usize count = 0;
+void pump_window_events (System_Event **system_events, usize *events_count) {
+  count = 0;
 
   MSG message;
   while (PeekMessage(&message, nullptr, 0, 0, PM_REMOVE)) {
     switch (message.message) {
       case WM_QUIT: {
-        quit_requested = true;
+        auto &event = get_next_event();
+        event.tag = System_Event::Quit;
+
         break;
       }
 
@@ -146,7 +155,7 @@ bool pump_window_events (System_Event **system_events, usize *events_count) {
       case WM_SYSKEYUP:
       case WM_KEYDOWN:
       case WM_KEYUP: {
-        auto &event = buffered_events[count++];
+        auto &event = get_next_event();
         event.tag = System_Event::Keyboard;
 
         auto &input = event.keyboard;
@@ -181,8 +190,6 @@ bool pump_window_events (System_Event **system_events, usize *events_count) {
 
   *system_events = buffered_events;
   *events_count  = count;
-
-  return quit_requested;
 }
 
 Status_Code present_frame () {

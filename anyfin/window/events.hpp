@@ -1,6 +1,8 @@
 
 #pragma once
 
+#include "anyfin/base.hpp"
+
 struct User_Quit_Event {};
 
 struct Key_Code {
