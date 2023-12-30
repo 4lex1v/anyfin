@@ -6,6 +6,8 @@
 #include "anyfin/base.hpp"
 #include "anyfin/core/prelude.hpp"
 
+namespace Fin::Core {
+
 template<typename T>
 constexpr T square (T a) {
   const T result = a * a;
@@ -907,10 +909,9 @@ constexpr Vec4<T> vec4 (const T x, const T y, const T z, const T w) {
 /*   return result; */
 /* } */
 
-/* inline float clamp (float value, float min = 0.0f, float max = 1.0f) { */
-/*   float result = min > value ? min : (value < max ? value : max); */
-/*   return result; */
-/* } */
+constexpr float clamp (float value, float min = 0.0f, float max = 1.0f) {
+  return min > value ? min : (value < max ? value : max);
+}
 
 /* inline float lerp (float start, float end, float gradient) { */
 /*   float result = start + clamp(gradient) * (end - start); */
@@ -926,3 +927,5 @@ static Vec2<f32> cubic_spline (const Vec2<f32> p0, const Vec2<f32> p3, const Vec
   const auto point = p0 * cube(1.0f - t) + p1 * (3 * t * square(1.0f - t)) + p2 * (3 * square(t) * (1.0f - t)) + p3 * cube(t);
   return point;
 }
+
+} // namespace Fin::Core

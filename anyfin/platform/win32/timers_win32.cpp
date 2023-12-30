@@ -1,18 +1,15 @@
 
-#pragma comment(lib, "winmm")
+#define NOMINMAX
+#include <Windows.h>
 
-#include "anyfin/platform/win32/common_win32.hpp"
 #include "anyfin/platform/timers.hpp"
-#include "anyfin/core/status_code.hpp"
 
-#include <timeapi.h>
+namespace Fin::Core {
 
-Status_Code enable_high_precision_timer () {
+Result<Timer_Error, void> enable_high_precision_timer () {
   auto status = timeBeginPeriod(1);
-  if (status == TIMERR_NOCANDO)
-    return { Status_Code::System_Error, "High precision timer is not supported" };
-
-  return Status_Code::Success;
+  if (status == TIMERR_NOCANDO) return Error(Timer_Error{});
+  return Ok();
 }
 
 void disable_high_precision_timer () {
@@ -40,4 +37,6 @@ u64 get_elapsed_millis (u64 frequency, u64 from, u64 to) {
   elapsed /= frequency;
 
   return elapsed;
+}
+
 }

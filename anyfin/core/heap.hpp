@@ -3,6 +3,8 @@
 
 #include "anyfin/base.hpp"
 
+namespace Fin::Core {
+
 constexpr usize DEFAULT_ALIGNMENT = sizeof(void *);
 
 struct Heap {
@@ -29,3 +31,4 @@ T & heap_push_struct (Heap &heap, const char *tag, usize alignment = alignof(T))
 void report_leaks (const Heap &heap);
 void destroy (Heap &heap);
 
+} // namespace Fin::Core

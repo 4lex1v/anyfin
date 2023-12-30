@@ -3,6 +3,8 @@
 
 #include "anyfin/base.hpp"
 
+namespace Fin::Core {
+
 // Parameter table: https://en.wikipedia.org/wiki/Linear_congruential_generator
 struct Linear_Conguential_Generator {
   static const u64 a = 1664525;
@@ -25,3 +27,4 @@ static inline u64 get_random_in_range (Linear_Conguential_Generator &lcg, u64 mi
   return static_cast<int>(min + normalized * (max - min + 1));
 }
 
+} // namespace Fin::Core

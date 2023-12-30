@@ -32,6 +32,27 @@ using psize = usize;
 
 #define flag(N) 1 << (N)
 
-#define use(ENUM) using enum ENUM::Value
-
 #define fin_forceinline __attribute__((always_inline))
+
+inline void * operator new (usize, void *value) { return value; }
+
+#define defer auto tokenpaste(__deferred_lambda_call, __COUNTER__) = Fin::Base::deferrer << [&] ()
+
+namespace Fin::Base {
+
+template <typename Type>
+struct Deferrable {
+  Type cleanup;
+
+  explicit Deferrable (Type &&cb): cleanup { cb } {}
+  ~Deferrable () { cleanup(); }
+};
+
+static struct {
+  template <typename Type>
+  constexpr Deferrable<Type> operator << (Type &&cb) {
+    return Deferrable<Type>(static_cast<Type &&>(cb));
+  }
+} deferrer;
+
+}

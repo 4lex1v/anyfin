@@ -1,6 +1,5 @@
 
 #include "anyfin/base.hpp"
-
 #include "anyfin/core/heap.hpp"
 
 struct Heap::Block {

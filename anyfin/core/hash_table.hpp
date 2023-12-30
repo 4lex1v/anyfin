@@ -3,6 +3,10 @@
 
 #include "anyfin/base.hpp"
 
+#include "anyfin/core/heap.hpp"
+
+namespace Fin::Core {
+
 static inline u64 compute_hash (const u64 value) {
   static const usize seed = 0x517cc1b727220a95;
 
@@ -167,7 +171,7 @@ struct Hash_Table {
   }
 
   void insert_copy (const Key &key, Value value) {
-    insert(Key(key), std::move(value));
+    insert(Key(key), move(value));
   }
 
   void remove (const Key &key) {
@@ -344,3 +348,5 @@ template <typename K, typename V>
 static inline void destroy (Hash_Table<K, V> &table, const char *tag) {
   table.destroy(tag);
 }
+
+} // namespace Fin::Core

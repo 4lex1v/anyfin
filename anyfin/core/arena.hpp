@@ -2,73 +2,90 @@
 #pragma once
 
 #include "anyfin/base.hpp"
-#include "anyfin/core/prelude.hpp"
+
+#include "anyfin/core/assert.hpp"
+#include "anyfin/core/allocator.hpp"
+#include "anyfin/core/meta.hpp"
+
+namespace Fin::Core {
 
 struct Memory_Arena {
-  u8    *memory;
-  usize  size;
-  usize  offset;
+  u8 * const memory;
+  const usize size;
+  usize offset;
 
-  constexpr Memory_Arena (u8 *_memory, usize _size)
+  Memory_Arena () = delete;
+
+  Memory_Arena (u8 *_memory, const usize _size)
     : memory { _memory },
-      size   { _size   },
-      offset { 0 }
+      size   { _size }
   {}
 
-  constexpr Memory_Arena (Memory_Region region)
-    : memory { region.memory },
-      size   { region.size   },
+  Memory_Arena (Memory_Region &&other)
+    : memory { other.memory },
+      size   { other.size },
       offset { 0 }
-  {}
+  {
+    other.memory = nullptr;
+    other.size   = 0;
+  }
+
+  operator Allocator_View ();
 };
 
-constexpr void reset_arena (Memory_Arena &arena) {
+u8 * reserve_memory (Memory_Arena &arena, const usize size, const usize alignment = alignof(void *), const Callsite_Info info = Callsite_Info());
+
+void free_reservation (Memory_Arena &arena, void *address, const Callsite_Info info = Callsite_Info());
+
+u8 * grow_reservation (Memory_Arena &arena, void *address, const usize old_size, const usize new_size, const Callsite_Info info = Callsite_Info());
+
+static void reset_arena (Memory_Arena &arena) {
   arena.offset = 0;
 }
 
+static usize get_remaining_size (const Memory_Arena &arena) {
+  return arena.size - arena.offset;
+}
+
 template <typename T = char>
-constexpr T * get_memory_at_current_offset (Memory_Arena &arena, usize alignment = alignof(T)) {
+static T * get_memory_at_current_offset (Memory_Arena &arena, const usize alignment = alignof(T)) {
   return reinterpret_cast<T *>(align_forward(arena.memory + arena.offset, alignment));
 }
 
-constexpr u8 * reserve_memory (Memory_Arena &arena, usize size, usize alignment = alignof(void *)) {
-  auto base         = arena.memory + arena.offset;
-  auto aligned_base = align_forward(base, alignment);
-
-  auto alignment_shift  = static_cast<usize>(aligned_base - base);
-  auto reservation_size = alignment_shift + size;
-  
-  if ((reservation_size + arena.offset) > arena.size) return nullptr;
-
-  arena.offset += reservation_size;
-
-  return aligned_base;
+static Memory_Arena make_sub_arena (Memory_Arena &arena, const usize size) {
+  return Memory_Arena(reserve_memory(arena, size, alignof(void *)), size);
 }
 
-constexpr u8 * reserve_memory_unsafe (Memory_Arena &arena, usize size, usize alignment = alignof(void *)) {
-  auto base         = arena.memory + arena.offset;
-  auto aligned_base = align_forward(base, alignment);
+template <typename T, usize Align = alignof(T), typename... Args>
+static T * reserve_struct (Memory_Arena &arena, Args&&... args) {
+  auto memory = reserve_memory(arena, sizeof(T), Align);
+  if (!memory) [[unlikely]] return nullptr;
 
-  auto alignment_shift  = static_cast<usize>(aligned_base - base);
-  auto reservation_size = alignment_shift + size;
-
-  arena.offset += reservation_size;
-
-  return aligned_base;
+  return new (memory) T { forward<Args>(args)... };
 }
 
-template <typename T>
-constexpr T * reserve_struct (Memory_Arena &arena, usize alignment = alignof(T)) {
-  return reinterpret_cast<T *>(reserve_memory(arena, sizeof(T), alignment));
-}
+template <>
+struct Scope_Allocator<Memory_Arena> {
+  Memory_Arena arena;
 
-template <typename T = char>
-constexpr T * reserve_array  (Memory_Arena &arena, usize count, usize alignment = alignof(T)) {
-  if (count == 0) return nullptr;
-  return reinterpret_cast<T *>(reserve_memory(arena, sizeof(T) * count, alignment));
-}
+  Scope_Allocator (Memory_Arena &_arena)
+    : arena  { _arena } {}
 
-template <typename T = char>
-constexpr T * reserve_array_unsafe (Memory_Arena &arena, usize count, usize alignment = alignof(T)) {
-  return reinterpret_cast<T *>(reserve_memory_unsafe(arena, sizeof(T) * count, alignment));
+  ~Scope_Allocator () {}
+
+  operator Allocator_View ();
+
+  // u8 * reserve (usize size, usize alignment, const Callsite_Info info = Callsite_Info()) {
+  //   return reserve_(size, alignment, info);
+  // }
+
+  // void free (void *address, const Callsite_Info info = Callsite_Info()) {
+  //   arena.free(address, info);
+  // }
+
+  // u8 * grow (void *address, usize old_size, usize new_size, const Callsite_Info info = Callsite_Info()) {
+  //   return arena.grow(address, old_size, new_size, info);
+  // }
+};
+
 }
