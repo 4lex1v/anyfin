@@ -1,5 +1,5 @@
 
-#define FILES_API_IMPL
+#define FILES_HPP_IMPL
 #include "anyfin/platform/files.hpp"
 
 #include "anyfin/platform/win32/base_win32.hpp"
@@ -78,7 +78,7 @@ static Result<File_Path> get_absolute_path (Core::Allocator auto &allocator, con
     return Core::Error(get_system_error());
   }
 
-  return Core::Ok(File_Path(buffer, full_path_name_length, allocator));
+  return Core::Ok(File_Path(allocator, buffer, full_path_name_length));
 }
 
 static Result<File_Path> get_working_directory_path (Core::Allocator auto &allocator) {

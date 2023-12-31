@@ -66,6 +66,11 @@ struct Option {
     return move(reinterpret_cast<Value_Type *>(this->value));
   }
 
+  constexpr Value_Type && take (const char *message) {
+    if (is_none()) [[unlikely]] trap(message);
+    return move(*reinterpret_cast<Value_Type *>(this->storage));
+  }
+
   constexpr Value_Type && take () {
     if (is_none()) [[unlikely]] trap("Attempt to deference an empty Option value");
     return move(*reinterpret_cast<Value_Type *>(this->storage));

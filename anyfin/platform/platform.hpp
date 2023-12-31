@@ -15,18 +15,13 @@ enum struct Platform {
 
 struct System_Error {
   u32 error_code;
-
-  Core::String retrieve_system_error_message (Core::Allocator_View allocator, const char **args, usize args_count);
-
-  Core::String retrieve_system_error_message (Core::Allocator auto &allocator, Core::Convertible_To<const char *> auto&&... args) {
-    const char *arg_array[] = { static_cast<const char *>(args)..., nullptr };
-    return this->retrieve_system_error_message(allocator, arg_array, sizeof...(args));
-  }
 };
 
-static inline Core::String to_string (const System_Error &error, Core::Allocator auto &allocator) {
-  return String();
+static auto to_string (const System_Error &error, Core::Allocator auto &allocator) {
+  return to_string(error.error_code, allocator);
 }
+
+static Core::String retrieve_system_error_message (Core::Allocator auto &allocator, const System_Error &error, Core::Convertible_To<const char *> auto&&... args); 
 
 template <typename T>
 using Result = Core::Result<System_Error, T>;
@@ -44,7 +39,7 @@ struct System_Command_Status {
   u32          status_code;
 };
 
-Result<System_Command_Status> run_system_command (const Core::String_View &command_line, Core::Allocator_View allocator);
+static Result<System_Command_Status> run_system_command (Core::Allocator auto &allocator, const Core::String_View &command_line);
 
 u32 get_logical_cpu_count (); 
 

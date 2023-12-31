@@ -76,7 +76,7 @@ struct String {
 
   constexpr String () = default;
 
-  constexpr String (const char *_value, const usize _length, Allocator auto &_allocator)
+  constexpr String (Allocator auto &_allocator, const char *_value, const usize _length)
     : allocator { _allocator }, value { _value }, length { _length } {}
 
   constexpr String (String &&other)
@@ -90,7 +90,7 @@ struct String {
 
   String& operator = (const String &other) {
     this->~String();
-    copy_string(*this, other, other.allocator);
+    copy_string(other.allocator, *this, other);
     return *this;
   }
 
@@ -112,30 +112,37 @@ struct String {
 
   constexpr char operator [] (usize idx) const { return value[idx]; }
 
-  static String copy (const String_View &view, Allocator auto &allocator) {
+  static String copy (Allocator auto &allocator, const String &string) {
+    String new_string {};
+    if (is_empty(string)) return new_string;
+    copy_string(allocator, new_string, string);
+    return new_string;
+  }
+
+  static String copy (Allocator auto &allocator, const String_View &view) {
     String new_string {};
 
     if (is_empty(view)) return new_string;
 
-    copy_string(new_string, view, allocator);
+    copy_string(allocator, new_string, view);
 
     return new_string;
   }
 
-  static String copy (const char *value, const usize length, Allocator auto &allocator) {
-    return copy(String_View(value, length), allocator);
+  static String copy (Allocator auto &allocator, const char *value, const usize length) {
+    return copy(allocator, String_View(value, length));
   }
   
-  static String copy (const char *value, Allocator auto &allocator) {
-    return copy(String_View(value), allocator);
+  static String copy (Allocator auto &allocator, const char *value) {
+    return copy(allocator, String_View(value));
   }
 
   const char * begin () const { return value; }
   const char * end   () const { return value + length; }
 
 private:
-  static void copy_string (String &dest, const String_View &source, Allocator auto &allocator) {
-    auto buffer = reinterpret_cast<char *>(reserve_memory(allocator, source.length + 1, alignof(char)));
+  static void copy_string (Allocator auto &allocator, String &dest, const String_View &source) {
+    auto buffer = reserve_memory(allocator, source.length + 1, alignof(char));
 
     memcpy(buffer, source.value, source.length);
     buffer[source.length] = '\0';
@@ -288,7 +295,7 @@ static String format_string (Alloc_Type &allocator, const Format_String &format,
 
   assert(format.placeholder_count == N);
 
-  Scope_Allocator<Alloc_Type> local { allocator };
+  Scope_Allocator local { allocator };
 
   auto render_value = [&local] (const auto &value) -> String_View {
     if constexpr (is_convertible<decltype(value), String_View>)
@@ -334,10 +341,12 @@ static String format_string (Alloc_Type &allocator, const Format_String &format,
 
   buffer[reservation_size - 1] = '\0';
 
+  destroy(local);
+
   auto string = reserve_memory(allocator, reservation_size, alignof(char));
   memcpy(string, buffer, reservation_size);
 
-  return String(reinterpret_cast<char *>(string), reservation_size - 1, allocator);
+  return String(allocator, reinterpret_cast<char *>(string), reservation_size - 1);
 }
 
 static auto to_string (const char value, Allocator auto &allocator) {
@@ -347,7 +356,47 @@ static auto to_string (const char value, Allocator auto &allocator) {
   memory[0] = value;
   memory[1] = '\0';
 
-  return String(reinterpret_cast<char *>(memory), 1, allocator);
+  return String(allocator, reinterpret_cast<char *>(memory), 1);
+}
+
+template <usize N>
+static auto to_string (const char (&value)[N], Allocator auto &allocator) {
+  auto buffer = reinterpret_cast<char *>(reserve_memory(allocator, N, alignof(char)));
+  if (!buffer) trap("Out of memory");
+
+  buffer[N] = '\0';
+
+  return String(allocator, buffer, N - 1);
+}
+
+template <Integral I>
+static auto to_string (I value, Allocator auto &allocator) {
+  char buffer[20];
+  usize offset;
+  
+  bool is_negative = false;
+  if constexpr (is_signed<I>) {
+    is_negative = value < 0;
+    value       = -value; 
+  }
+
+  do {
+    const auto digit = value % 10;
+    buffer[offset++] = '0' + digit;
+    value /= 10;
+  } while (value != 0);
+
+  if constexpr (is_signed<I>) {
+    if (is_negative) buffer[offset++] = '-';
+  }
+
+  auto string = reinterpret_cast<char *>(reserve_memory(allocator, offset + 1));
+  for (usize idx = offset; idx > 0; idx--) {
+    string[offset - idx] = buffer[idx];
+  }
+  string[offset + 1] = '\0';
+  
+  return String(allocator, string, offset);
 }
 
 namespace iterator {

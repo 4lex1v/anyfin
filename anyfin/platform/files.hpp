@@ -39,7 +39,7 @@ static File_Path make_file_path (Core::Allocator auto &allocator, const Core::Sl
 
   buffer[reservation_size - 1] = '\0';
 
-  return File_Path(buffer, reservation_size - 1, allocator);
+  return File_Path(allocator, buffer, reservation_size - 1);
 }
 
 /*
@@ -53,7 +53,7 @@ static File_Path make_file_path (Core::Allocator auto &allocator, Core::Converti
 
 enum struct Resource_Type { File, Directory };
 
-enum struct File_System_Flags: u32 {
+enum struct File_System_Flags: u64 {
   Write_Access   = flag(0),
   Shared_Write   = flag(1),
   Create_Missing = flag(2),
@@ -96,6 +96,7 @@ static Result<Core::List<File_Path>> list_files (Core::Allocator auto &allocator
 
 struct File {
   void *handle;
+  File_Path path;
 };
 
 static Result<File> open_file (Core::Allocator auto &allocator, const File_Path &path, Core::Bit_Mask<File_System_Flags> flags = {});
@@ -125,7 +126,7 @@ static Result<void> unmap_file (File_Mapping &mapping);
 
 }
 
-#ifndef FILES_API_IMPL
+#ifndef FILES_HPP_IMPL
   #ifdef PLATFORM_WIN32
     #include "files_win32.hpp"
   #else

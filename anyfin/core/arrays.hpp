@@ -9,15 +9,15 @@ namespace Fin::Core {
 
 template <typename T>
 struct Array {
-  Allocator allocator;
+  Allocator_View allocator;
 
   T     *values    = nullptr;
   usize  count     = 0;
 
   Array () = default;
 
-  Array (T *_values, usize _count, Allocator _allocator)
-    : allocator { move(_allocator) }, values { _values }, count { _count }
+  Array (T *_values, usize _count, Allocator auto &_allocator)
+    : allocator { _allocator }, values { _values }, count { _count }
   {}
 
   ~Array () {
@@ -30,7 +30,7 @@ struct Array {
 
 template <typename T = char>
 static auto reserve_array (Can_Reserve_Memory auto &allocator, const usize element_count, const usize alignment = alignof(T),
-                           const Callsite_Info callsite = Callsite_Info::current()) {
+                           const Callsite_Info callsite = Callsite_Info()) {
   using Alloc_Type = raw_type<decltype(allocator)>;
   return Array<T>(allocator.reserve(sizeof(T) * element_count, alignment, callsite), element_count, allocator);
 }

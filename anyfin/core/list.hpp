@@ -26,6 +26,8 @@ struct List {
 
   usize count = 0;
 
+  List () = default;
+
   List (Allocator auto &_allocator)
     : allocator { _allocator } {}
 

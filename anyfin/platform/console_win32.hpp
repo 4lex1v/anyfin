@@ -1,6 +1,9 @@
 
 #include "anyfin/core/strings.hpp"
 
+#define CONSOLE_HPP_IMPL
+#include "anyfin/platform/console.hpp"
+
 #include "anyfin/core/win32/base_win32.hpp"
 
 namespace Fin::Core {
@@ -8,7 +11,7 @@ namespace Fin::Core {
 /*
   TODO: Thread UNSAFE implementation
  */
-void console_print_message (const String_View &message) {
+static void console_print_message (const String_View &message) {
   auto stdout = GetStdHandle(STD_OUTPUT_HANDLE);
   WriteConsole(stdout, message.value, message.length, nullptr, nullptr);
 }
