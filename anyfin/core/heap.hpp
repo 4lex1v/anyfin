@@ -3,12 +3,16 @@
 
 #include "anyfin/base.hpp"
 
+#include "anyfin/core/allocator.hpp"
+
 namespace Fin::Core {
 
 constexpr usize DEFAULT_ALIGNMENT = sizeof(void *);
 
 struct Heap {
   struct Block;
+
+  const Allocator_Tag tag = Allocator_Tag::Heap;
 
   Memory_Region memory;
   

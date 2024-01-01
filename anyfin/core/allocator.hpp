@@ -9,6 +9,9 @@
 
 namespace Fin::Core {
 
+struct Heap;
+struct Memory_Arena;
+
 template <typename A>
 concept Can_Reserve_Memory = requires (A allocator, usize size, usize alignment, const Callsite_Info callsite) {
   { reserve_memory(allocator, size, alignment, callsite) } -> Same_Types<u8 *>;
@@ -24,57 +27,68 @@ concept Can_Grow_Reseration = requires (A allocator, void *address, usize old_si
   { grow_reservation(allocator, address, old_size, new_size, callsite) } -> Same_Types<u8 *>;
 };
 
+struct Allocation_Request {
+  enum Type { Reserve, Grow, Free };
+  
+  void *address = nullptr;
+  usize old_size = 0;
+  usize new_size;
+  usize alignment = 0;
+  Callsite_Info info;
+
+  constexpr Allocation_Request (const usize _size, const usize _alignment = alignof(void *), const Callsite_Info _info = {})
+    : new_size { _size }, alignment { _alignment }, info { _info } {}
+
+  constexpr Allocation_Request (void *_address, const usize _old_size, const usize _new_size, const Callsite_Info _info = {})
+    : address { _address }, old_size { _old_size }, new_size { _new_size }, info { _info } {}
+
+  constexpr Allocation_Request (void *_address, const Callsite_Info _info = {})
+    : address { _address }, info { _info } {}
+};
+
 template <typename A>
-concept Allocator = Can_Reserve_Memory<A> && Can_Free_Reservation<A> && Can_Grow_Reseration<A>;
+concept Allocator = requires (A &alloc, Allocation_Request request) {
+  { allocator_dispatch(alloc, request) } -> Same_Types<u8 *>;
+};
+
+struct Allocator_View;
+
+fin_forceinline
+static u8 * reserve_memory (Allocator auto &allocator, const usize size, const usize alignment, const Callsite_Info info) {
+  return allocator_dispatch<Allocation_Request::Reserve>(allocator, Allocation_Request(size, alignment, info));
+}
+
+fin_forceinline
+static u8 * grow_reservation (Allocator auto &allocator, void *address, const usize old_size, const usize new_size, const Callsite_Info info) {
+  return allocator_dispatch<Allocation_Request::Grow>(allocator, Allocation_Request(address, old_size, new_size, info));
+}
+
+fin_forceinline
+static void free_reservation (Allocator auto &allocator, void *address, const Callsite_Info info) {
+  allocator_dispatch<Allocation_Request::Free>(allocator, Allocation_Request(address, info));
+}
 
 struct Allocator_View {
-  using Reserve_Func = u8 * (*) (void *, usize, usize, Callsite_Info);
-  using Grow_Func    = u8 * (*) (void *, void *, usize, usize, Callsite_Info);
-  using Free_Func    = void (*) (void *, void *, Callsite_Info);
+  using Dispatch_Func = u8 * (*) (void *, Allocation_Request);
 
-  void *underlying;
-  
-  Reserve_Func reserve;
-  Grow_Func    grow;
-  Free_Func    free;
-
-  /*
-    Needed to disable aggregate initialization, otherwise passing a templated allocator
-    would cause a compilation error, in cases like:
-
-      List (Allocator auto &_allocator)
-        : allocator { _allocator } {}
-   */
-  constexpr Allocator_View () = default;
+  void *value;
+  Dispatch_Func dispatch;
 };
 
 fin_forceinline
-static u8 * reserve_memory (const Allocator_View &allocator, const usize size, const usize alignment = alignof(void *),
-                            const Callsite_Info callsite = Callsite_Info()) {
-  return allocator.reserve(allocator.underlying, size, alignment, callsite);
+static u8 * allocator_dispatch (const Allocator_View &view, const Allocation_Request request) {
+  return view.dispatch(view.value, move(request));
 }
 
-fin_forceinline
-static u8 * grow_reservation (const Allocator_View &allocator, void * const address, const usize old_size, const usize new_size,
-                                     const Callsite_Info callsite = Callsite_Info()) {
-  return allocator.grow(allocator.underlying, address, old_size, new_size, callsite);
-}
+// template <Allocator Alloc_Type>
+// struct Scope_Allocator {
+//   Scope_Allocator (Alloc_Type &underlying);
+// };
 
-fin_forceinline
-static void free_reservation (const Allocator_View &allocator, void * const address,
-                                     const Callsite_Info callsite = Callsite_Info()) {
-  allocator.free(allocator.underlying, address, callsite);
-}
+// template <Allocator A> Scope_Allocator (Scope_Allocator<A>) -> Scope_Allocator<A>;
 
-template <Allocator Alloc_Type>
-struct Scope_Allocator {
-  Scope_Allocator (Alloc_Type &underlying);
-};
-
-template <Allocator A> Scope_Allocator (Scope_Allocator<A>) -> Scope_Allocator<A>;
-
-template <Allocator A>
-static void destroy (Scope_Allocator<A> &allocator);
+// template <Allocator A>
+// static void destroy (Scope_Allocator<A> &allocator);
 
 // template <typename T = char>
 // constexpr T * reserve_array  (const Allocator &allocator, usize count, usize alignment = alignof(T)) {

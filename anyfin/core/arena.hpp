@@ -10,6 +10,8 @@
 namespace Fin::Core {
 
 struct Memory_Arena {
+  const Allocator_Tag tag = Allocator_Tag::Arena;
+
   u8 * const memory;
   const usize size;
   usize offset;
@@ -32,6 +34,10 @@ struct Memory_Arena {
 
   operator Allocator_View ();
 };
+
+static u8 * allocator_dispatch (Memory_Arena &arena, Allocation_Request request) {
+  
+}
 
 static u8 * reserve_memory (Memory_Arena &arena, const usize size, const usize alignment = alignof(void *),
                             const Callsite_Info info = Callsite_Info()) {

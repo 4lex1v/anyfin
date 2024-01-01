@@ -68,6 +68,8 @@ struct String_View {
   const char * end   () const { return value + length; }
 };
 
+static_assert(sizeof(String_View) == 16);
+
 struct String {
   Allocator_View allocator;
 
@@ -151,6 +153,8 @@ private:
     dest.length = source.length;
   }
 };
+
+static_assert(sizeof(String) == 16);
 
 static inline void destroy (String &string, const Callsite_Info info = Callsite_Info()) {
   free_reservation(string.allocator, (void*)string.value, info);
