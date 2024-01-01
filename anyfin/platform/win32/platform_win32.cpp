@@ -27,68 +27,6 @@ Core::String System_Error::retrieve_system_error_message (const Core::Allocator 
   return Core::String(allocator, buffer, buffer_size);
 }
 
-Result<System_Command_Status> run_system_command (const Core::String_View &command_line, Core::Allocator &allocator) {
-  PROCESS_INFORMATION process  {};
-  SECURITY_ATTRIBUTES security { .nLength = sizeof(SECURITY_ATTRIBUTES), .bInheritHandle = TRUE };
-
-  HANDLE child_stdout_read, child_stdout_write;
-  CreatePipe(&child_stdout_read, &child_stdout_write, &security, 0);
-  SetHandleInformation(&child_stdout_read, HANDLE_FLAG_INHERIT, 0);
-
-  STARTUPINFO info {
-    .cb         = sizeof(STARTUPINFO),
-    .dwFlags    = STARTF_USESTDHANDLES,
-    .hStdOutput = child_stdout_write,
-    .hStdError  = child_stdout_write,
-  };
-
-  if (CreateProcess(nullptr, const_cast<char *>(command_line.value), &security, &security, TRUE, 0, NULL, NULL, &info, &process) == false)
-    return Core::Error(get_system_error());
-
-  CloseHandle(child_stdout_write);
-
-  Core::List<Core::String> chunks { allocator };
-  usize total_output_size = 0;
-  while (true) {
-    enum { buffer_size = 1024 };
-    auto buffer = reinterpret_cast<char *>(allocator.reserve(buffer_size, alignof(char)));
-
-    DWORD bytes_read;
-    ReadFile(child_stdout_read, buffer, buffer_size, &bytes_read, NULL);
-
-    total_output_size += bytes_read;
-
-    list_push(chunks, Core::String(allocator, buffer, bytes_read));
-  }
-
-  DWORD return_value = 0;
-  GetExitCodeProcess(process.hProcess, &return_value);
-
-  /*
-    For some reason when WaitForSingleObject comes before reading from a pipe it may hang indefinitely,
-    I'm not sure why this happens at this point. I'd like it to close the process first, before reading
-    from the pipe, otherwise profiler shows that reading takes a lot of time. I'll investigate this later.
-   */
-  WaitForSingleObject(process.hProcess, INFINITE);
-  CloseHandle(child_stdout_read);
-
-  CloseHandle(process.hProcess);
-  CloseHandle(process.hThread);
-
-  System_Command_Status result { .status_code = return_value };
-
-  if (total_output_size == 0) return Core::Ok(result);
-
-  auto buffer = allocator.reserve(total_output_size + 1);
-  for (auto offset = 0; auto &chunk: chunks) {
-    memcpy_s(buffer + offset, total_output_size - offset, chunk.value, chunk.length);
-    offset += chunk.length;
-  }
-
-  result.output = move(Core::String(allocator, reinterpret_cast<char *>(buffer), total_output_size));
-
-  return Core::Ok(result);
-}
 
 u32 get_logical_cpu_count () {
   SYSTEM_INFO systemInfo;

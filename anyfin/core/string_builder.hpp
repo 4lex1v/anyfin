@@ -26,14 +26,14 @@ struct String_Builder {
     this->length += value.length;
   }
 
-  void add (const Slice<String_View> &parts) { for (auto value: parts)  add(value); }
-  void add (const Slice<String> &parts)      { for (auto &value: parts) add(value); }
+  void add (const Iterable<String_View> auto &parts) { for (auto value: parts)  add(value); }
+  void add (const Iterable<String>      auto &parts) { for (auto &value: parts) add(value); }
 
-  void operator += (const String_View &value)         { add(value); }
-  void operator += (const Slice<String_View> &values) { add(values); }
+  void operator += (const Iterable<String_View> auto &values) { add(values); }
+  void operator += (const Iterable<String>      auto &values) { add(values); }
 
-  void operator += (const String &string)        { add(string); }
-  void operator += (const Slice<String> &values) { add(values); }
+  void operator += (const String_View &value) { add(value); }
+  void operator += (const String &string)     { add(string); }
 };
 
 static String build_string (Can_Reserve_Memory auto &allocator, const String_Builder &builder, bool use_separator, char separator) {

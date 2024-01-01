@@ -34,13 +34,6 @@ extern const Core::String_View platform_shared_library_extension_name;
 extern const Core::String_View platform_executable_extension_name;
 extern const Core::String_View platform_object_extension_name;
 
-struct System_Command_Status {
-  Core::String output;
-  u32          status_code;
-};
-
-static Result<System_Command_Status> run_system_command (Core::Allocator auto &allocator, const Core::String_View &command_line);
-
 u32 get_logical_cpu_count (); 
 
 }
