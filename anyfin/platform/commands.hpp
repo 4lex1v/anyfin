@@ -1,6 +1,10 @@
 
 #pragma once
 
+#include "anyfin/base.hpp"
+
+#include "anyfin/platform/platform.hpp"
+
 namespace Fin::Platform {
 
 struct System_Command_Status {

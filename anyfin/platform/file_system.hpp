@@ -3,16 +3,20 @@
 
 #include "anyfin/base.hpp"
 
-#include "anyfin/core/allocator.hpp"
 #include "anyfin/core/bit_mask.hpp"
-#include "anyfin/core/result.hpp"
+#include "anyfin/core/meta.hpp"
 #include "anyfin/core/strings.hpp"
-#include "anyfin/core/slice.hpp"
-#include "anyfin/core/list.hpp"
 
 #include "anyfin/platform/platform.hpp"
 
 namespace Fin::Platform {
+
+constexpr char get_path_separator();
+
+constexpr Core::String_View get_static_library_extension();
+constexpr Core::String_View get_shared_library_extension();
+constexpr Core::String_View get_executable_extension();
+constexpr Core::String_View get_object_extension();
 
 using File_Path      = Core::String;
 using File_Path_View = Core::String_View;
@@ -22,7 +26,7 @@ using File_Path_View = Core::String_View;
 
   Path separator is platform-dependent, i.e for Windows it's \, while for Unix systems - /.
  */
-static File_Path make_file_path (Core::Allocator auto &allocator, const Core::Slice<Core::String_View> &segments) {
+static File_Path make_file_path (Core::Allocator auto &allocator, const Core::Iterable<Core::String_View> auto &segments) {
   usize reservation_size = 0;
   // Segments will be separated with a platform-dependent path separator and be null-terminated.
   for (auto &s: segments) if (s) reservation_size += s.length + 1; 
@@ -33,7 +37,7 @@ static File_Path make_file_path (Core::Allocator auto &allocator, const Core::Sl
   auto cursor = buffer;
   for (auto &segment: segments) {
     memcpy(cursor, segment.value, segment.length);
-    cursor[segment.length] = platform_path_separator;
+    cursor[segment.length] = get_path_separator();
     cursor += segment.length + 1;
   }
 
@@ -107,7 +111,7 @@ static Result<u64> get_file_size (const File &file);
 
 static Result<u64> get_file_id (const File &file);
 
-static Result<void> write_buffer_to_file (File &file, const Core::Slice<const u8> &bytes);
+static Result<void> write_buffer_to_file (File &file, const Core::Iterable<const u8> auto &bytes);
 
 static void reset_file_cursor (File &file);
 
@@ -126,12 +130,10 @@ static Result<void> unmap_file (File_Mapping &mapping);
 
 }
 
-#ifndef FILES_HPP_IMPL
+#ifndef FILE_SYSTEM_HPP_IMPL
   #ifdef PLATFORM_WIN32
-    #include "files_win32.hpp"
+    #include "file_system_win32.hpp"
   #else
     #error "Unsupported platform"
   #endif
 #endif
-
-

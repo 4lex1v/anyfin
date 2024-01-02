@@ -5,25 +5,26 @@
 
 #include "anyfin/core/result.hpp"
 
-#include "anyfin/platform/files.hpp"
+#include "anyfin/platform/file_system.hpp"
 #include "anyfin/platform/platform.hpp"
 
-namespace Fin {
-namespace Platform {
+namespace Fin::Platform {
 
 struct Shared_Library;
 
-Core::Result<System_Error, Shared_Library *> load_shared_library (const File_Path &library_file_path);
+static Result<Shared_Library *> load_shared_library (const File_Path &library_file_path);
 
-Core::Result<System_Error, void> unload_library (Shared_Library &library);
-
-Core::Result<System_Error, void *> lookup_symbol (const Shared_Library &library, const Core::String_View &symbol_name);
+static Result<void> unload_library (Shared_Library &library);
 
 template <typename T>
-static inline Core::Result<System_Error, T *> lookup_symbol (const Shared_Library &library, const Core::String_View &symbol_name) {
-  return lookup_symbol(library, symbol_name).as<T *>();
-}
+static Result<T *> lookup_symbol (const Shared_Library &library, const Core::String_View &symbol_name);
 
 }
-}
 
+#ifndef SHARED_LIBRARY_HPP_IMPL
+  #ifdef PLATFORM_WIN32
+    #include "shared_library_win32.hpp"
+  #else
+    #error "Unsupported platform"
+  #endif
+#endif

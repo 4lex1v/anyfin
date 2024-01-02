@@ -1,10 +1,16 @@
 
-#define FILES_HPP_IMPL
-#include "anyfin/platform/files.hpp"
+#define FILE_SYSTEM_HPP_IMPL
 
-#include "anyfin/platform/win32/base_win32.hpp"
+#include "anyfin/platform/file_system.hpp"
 
 namespace Fin::Platform {
+
+constexpr char get_path_separator() { return '\\'; }
+
+constexpr Core::String_View get_static_library_extension() { return "lib"; }
+constexpr Core::String_View get_shared_library_extension() { return "dll"; }
+constexpr Core::String_View get_executable_extension()     { return "exe"; }
+constexpr Core::String_View get_object_extension()         { return "obj"; }
 
 static Result<void> create_resource (const File_Path &path, const Resource_Type resource_type, const Core::Bit_Mask<File_System_Flags> flags) {
   switch (resource_type) {
@@ -85,6 +91,10 @@ static Result<File_Path> get_working_directory_path (Core::Allocator auto &alloc
   Core::trap("Unimplemented");
 }
 
+static Result<Core::List<File_Path>> list_files (Core::Allocator auto &allocator, const File_Path &directory, const Core::String_View &extension, bool recursive) {
+  Core::trap("Unimplemented");
+}
+
 static Result<File> open_file (Core::Allocator auto &allocator, const File_Path &path, Core::Bit_Mask<File_System_Flags> flags) {
   Core::trap("Unimplemented");
 }
@@ -101,7 +111,7 @@ static Result<u64> get_file_id (const File &file) {
   Core::trap("Unimplemented");
 }
 
-static Result<void> write_buffer_to_file (File &file, const Core::Slice<const u8> &bytes) {
+static Result<void> write_buffer_to_file (File &file, const Core::Iterable<const u8> auto &bytes) {
   Core::trap("Unimplemented");
 }
 

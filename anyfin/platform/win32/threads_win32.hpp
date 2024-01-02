@@ -6,7 +6,7 @@ namespace Fin::Platform {
 Result<Thread> spawn_thread (const Closure<u32 ()> &proc) {
   DWORD thread_id;
   auto handle = CreateThread(nullptr, 0, reinterpret_cast<LPTHREAD_START_ROUTINE>(proc), nullptr, 0, &thread_id);
-  if (!handle) return Error(get_system_error());
+  if (!handle) return Error(GetLastError());
 
   return Ok(Thread { reinterpret_cast<Thread::Handle *>(handle), thread_id });
 }

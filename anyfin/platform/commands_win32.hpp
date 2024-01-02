@@ -1,14 +1,10 @@
 
-#ifdef COMMANDS_HPP_IMPL
-  #error "This is wrong"
-#endif
+#define COMMANDS_HPP_IMPL
 
 #include "anyfin/core/meta.hpp"
+#include "anyfin/core/win32.hpp"
 
-#define COMMANDS_HPP_IMPL
 #include "anyfin/platform/commands.hpp"
-
-#include "anyfin/platform/win32/base_win32.hpp"
 
 namespace Fin::Platform {
 

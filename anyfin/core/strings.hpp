@@ -56,7 +56,8 @@ struct String_View {
     return *this;
   }
 
-  constexpr operator bool () const { return this->value != nullptr && this->length != 0; }
+  constexpr operator         bool () const { return this->value != nullptr && this->length != 0; }
+  constexpr operator const char * () const { return this->value; }
   
   char operator [] (usize idx) const { return value[idx]; }
 

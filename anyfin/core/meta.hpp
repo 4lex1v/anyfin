@@ -32,6 +32,9 @@ template <typename T> inline constexpr bool is_pointer<T * const> = true;
 template <typename T> inline constexpr bool is_pointer<T * volatile> = true;
 template <typename T> inline constexpr bool is_pointer<T * const volatile> = true;
 
+template <typename T>          constexpr inline bool is_static_array       = false;
+template <typename T, usize N> constexpr inline bool is_static_array<T[N]> = true;
+
 template <typename From, typename To>
 inline constexpr bool is_convertible = __is_convertible_to(From, To);
 
@@ -81,15 +84,18 @@ concept Integral = is_signed<I> || is_unsigned<I>;
 
 template <typename I, typename T>
 concept Iterator = requires (I iterator, const I &other) {
-  { *iterator } -> Same_Types<T&>;
-  { ++iterator } -> Same_Types<I&>;
+  { *iterator }         -> Convertible_To<T &>;
+  { ++iterator }        -> Same_Types<I &>;
   { iterator != other } -> Same_Types<bool>;
 };
 
 template <typename C, typename T>
-concept Iterable = requires (C container) {
+concept Container = requires (C container) {
   { container.begin() } -> Iterator<T>;
   { container.end() }   -> Iterator<T>;
 };
+
+template <typename C, typename T>
+concept Iterable = Container<C, T> || is_static_array<C>;
 
 }
