@@ -2,7 +2,8 @@
 #pragma once
 
 #include "anyfin/base.hpp"
-#include "anyfin/core/meta.hpp"
+
+#include "anyfin/core/meta.hpp" // for the is_pointer check is align function
 
 extern "C" {
 
@@ -29,10 +30,6 @@ constexpr auto align_forward_to_pow_2 (const auto value) {
 
 constexpr bool is_aligned_by (const auto value, const usize by) {
   return value == align_forward(value, by);
-}
-
-constexpr bool is_power_of_2 (const auto &value) {
-  return (value > 0) && ((value & (value - 1)) == 0);
 }
 
 template <typename T>
@@ -73,7 +70,17 @@ struct Memory_Region {
   usize  size;
 };
 
-Memory_Region reserve_virtual_memory (usize size);
-void free_virtual_memory (Memory_Region &region);
+static Memory_Region reserve_virtual_memory (usize size);
+
+static void free_virtual_memory (Memory_Region &region);
 
 }
+
+#ifndef MEMORY_HPP_IMPL
+  #ifdef PLATFORM_WIN32
+    #include "anyfin/core/memory_win32.hpp"
+  #else
+    #error "Unsupported platform"
+  #endif
+#endif
+

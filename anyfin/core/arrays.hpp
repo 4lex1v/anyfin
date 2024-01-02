@@ -28,11 +28,4 @@ struct Array {
   T&       operator [] (usize offset)       { return values[offset]; }
 };
 
-template <typename T = char>
-static auto reserve_array (Can_Reserve_Memory auto &allocator, const usize element_count, const usize alignment = alignof(T),
-                           const Callsite_Info callsite = Callsite_Info()) {
-  using Alloc_Type = raw_type<decltype(allocator)>;
-  return Array<T>(allocator.reserve(sizeof(T) * element_count, alignment, callsite), element_count, allocator);
-}
-
 }

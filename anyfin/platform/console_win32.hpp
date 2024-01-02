@@ -4,7 +4,7 @@
 #define CONSOLE_HPP_IMPL
 #include "anyfin/platform/console.hpp"
 
-#include "anyfin/core/win32/base_win32.hpp"
+#include "anyfin/core/win32.hpp"
 
 namespace Fin::Core {
 

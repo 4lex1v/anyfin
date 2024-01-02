@@ -1,10 +1,11 @@
 
 #pragma once
 
-#include <intrin.h>
-
 #include "anyfin/base.hpp"
+
 #include "anyfin/core/prelude.hpp"
+
+#include <intrin.h>
 
 namespace Fin::Core {
 

@@ -36,7 +36,7 @@ struct String_Builder {
   void operator += (const String &string)     { add(string); }
 };
 
-static String build_string (Can_Reserve_Memory auto &allocator, const String_Builder &builder, bool use_separator, char separator) {
+static String build_string (Allocator auto &allocator, const String_Builder &builder, bool use_separator, char separator) {
   if (!builder.length) return {};
     
   auto reservation_size = builder.length + 1;
@@ -59,11 +59,11 @@ static String build_string (Can_Reserve_Memory auto &allocator, const String_Bui
   return String(allocator, buffer, offset);
 }
 
-static String build_string (Can_Reserve_Memory auto &allocator, const String_Builder &builder) {
+static String build_string (Allocator auto &allocator, const String_Builder &builder) {
   return build_string(allocator, builder, false, 0);
 }
 
-static String build_string_with_separator (Can_Reserve_Memory auto &allocator, const String_Builder &builder, char separator) {
+static String build_string_with_separator (Allocator auto &allocator, const String_Builder &builder, char separator) {
   return build_string(allocator, builder, true, separator);
 }
 

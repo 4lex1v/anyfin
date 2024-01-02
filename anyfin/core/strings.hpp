@@ -3,10 +3,10 @@
 
 #include "anyfin/base.hpp"
 
-#include "anyfin/core/prelude.hpp"
-#include "anyfin/core/meta.hpp"
-#include "anyfin/core/assert.hpp"
 #include "anyfin/core/allocator.hpp"
+#include "anyfin/core/assert.hpp"
+#include "anyfin/core/meta.hpp"
+#include "anyfin/core/prelude.hpp"
 #include "anyfin/core/trap.hpp"
 
 namespace Fin::Core {
@@ -154,8 +154,6 @@ private:
   }
 };
 
-static_assert(sizeof(String) == 16);
-
 static inline void destroy (String &string, const Callsite_Info info = Callsite_Info()) {
   free_reservation(string.allocator, (void*)string.value, info);
 }
@@ -299,7 +297,7 @@ static String format_string (Alloc_Type &allocator, const Format_String &format,
 
   assert(format.placeholder_count == N);
 
-  Scope_Allocator local { allocator };
+  Scope_Allocator<Alloc_Type> local { allocator };
 
   auto render_value = [&local] (const auto &value) -> String_View {
     if constexpr (is_convertible<decltype(value), String_View>)
@@ -344,8 +342,6 @@ static String format_string (Alloc_Type &allocator, const Format_String &format,
   }
 
   buffer[reservation_size - 1] = '\0';
-
-  destroy(local);
 
   auto string = reserve_memory(allocator, reservation_size, alignof(char));
   memcpy(string, buffer, reservation_size);
