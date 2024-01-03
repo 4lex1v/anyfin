@@ -1,6 +1,8 @@
 
 #define FILE_SYSTEM_HPP_IMPL
 
+#include "anyfin/core/option.hpp"
+
 #include "anyfin/platform/file_system.hpp"
 
 namespace Fin::Platform {
@@ -64,11 +66,11 @@ static Result<Core::Option<Core::String>> get_resource_name (Core::Allocator aut
 
   char *file_name_offset = nullptr;
   const auto length = GetFullPathName(path, MAX_PATH, buffer, &file_name_offset);
-  if (!length) return Core::Error(get_system_error());
+  if (!length) return get_system_error();
 
   if (file_name_offset) {
     const auto name_length = (buffer + length) - file_name_offset;
-    return Core::Ok(Option(Core::String::copy(file_name_offset, name_length, allocator)));
+    return Core::Option(Core::String::copy(allocator, file_name_offset, name_length));
   }
   
   Core::trap("Unimplemented");
@@ -85,6 +87,10 @@ static Result<File_Path> get_absolute_path (Core::Allocator auto &allocator, con
   }
 
   return Core::Ok(File_Path(allocator, buffer, full_path_name_length));
+}
+
+static Result<Core::Option<File_Path>> get_parent_folder_path (Core::Allocator auto &allocator, const File_Path &file) {
+  Core::trap("Unimplemented");
 }
 
 static Result<File_Path> get_working_directory_path (Core::Allocator auto &allocator) {

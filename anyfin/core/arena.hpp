@@ -7,6 +7,7 @@
 #include "anyfin/core/allocator.hpp"
 #include "anyfin/core/memory.hpp"
 #include "anyfin/core/meta.hpp"
+#include "anyfin/core/prelude.hpp"
 
 namespace Fin::Core {
 
@@ -63,7 +64,7 @@ static u8 * allocator_dispatch (Memory_Arena &arena, const Allocation_Request re
       auto new_region = allocator_dispatch(arena, Allocation_Request(request.size, request.alignment, request.info));
       if (!new_region) [[unlikely]] return nullptr;
 
-      memcpy_s(new_region, request.size, request.address, request.old_size);
+      copy_memory(new_region, (u8*) request.address, request.old_size);
 
       return new_region;
     }

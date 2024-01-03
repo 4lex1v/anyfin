@@ -5,14 +5,6 @@
 
 #include "anyfin/core/meta.hpp" // for the is_pointer check is align function
 
-extern "C" {
-
-void * memcpy   (void *dest, const void *src, usize count);
-int    memcpy_s (void *const, unsigned __int64, void const *const, unsigned __int64);
-void * memset   (void *str, int c, usize n);
-
-}
-
 namespace Fin::Core {
 
 template <typename T>

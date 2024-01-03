@@ -5,7 +5,7 @@
 
 namespace Fin::Core {
 
-typedef void (*Crash_Handler) (u32 exit_code);
+using Crash_Handler = void (*) (u32 crash_handler);
 
 static void set_crash_handler (Crash_Handler handler);
 

@@ -2,6 +2,7 @@
 #pragma once
 
 #include "anyfin/base.hpp"
+
 #include "anyfin/core/assert.hpp"
 
 namespace Fin::Core {
@@ -21,16 +22,18 @@ struct Slice {
       count { _count }
   {}
 
-  operator bool () const { return !count; }
+  constexpr operator bool () const { return !count; }
 
-  T& operator [] (usize offset) { return elements[offset]; }
+  T &       operator [] (usize offset)       { return elements[offset]; }
+  T const & operator [] (usize offset) const { return elements[offset]; }
 
   Slice<T> operator + (usize offset) const {
     assert(offset < count);
     return Slice(this->elements + offset, this->count - offset);
   }
 
-  T operator * () const { return *elements; }
+  T &       operator * ()       { return *elements; }
+  T const & operator * () const { return *elements; }
 
   Slice<T> operator ++ (int) {
     assert(count > 0);

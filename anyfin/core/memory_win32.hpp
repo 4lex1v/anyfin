@@ -6,34 +6,9 @@
 #include "anyfin/core/memory.hpp"
 #include "anyfin/core/trap.hpp"
 
-// extern "C" {
-
-// #pragma function(memset)
-// void * memset (void *destination, int value, size_t count) {
-//   auto storage = reinterpret_cast<u8 *>(destination);
-//   for (size_t idx = 0; idx < count; idx++) {
-//     storage[idx] = static_cast<u8>(value);
-//   }
-
-//   return destination;
-// }
-
-// #pragma function(memcpy)
-// void * memcpy (void *destination, const void *source, size_t count) {
-//   auto from = reinterpret_cast<const u8 *>(source);
-//   auto to   = reinterpret_cast<u8 *>(destination);
-//   for (size_t idx = 0; idx < count; idx++) {
-//     to[idx] = from[idx];
-//   }
-
-//   return destination;
-// }
-
-//}
-
 namespace Fin::Core {
 
-Memory_Region reserve_virtual_memory (usize size) {
+static Memory_Region reserve_virtual_memory (usize size) {
   SYSTEM_INFO system_info;
   GetSystemInfo(&system_info);
   
@@ -44,7 +19,7 @@ Memory_Region reserve_virtual_memory (usize size) {
   return Memory_Region { (u8 *) memory, aligned_size };
 }
 
-static void release_virtual_memory (Memory_Region &memory) {
+static void free_virtual_memory (Memory_Region &memory) {
   VirtualFree(memory.memory, memory.size, MEM_RELEASE);
 }
 

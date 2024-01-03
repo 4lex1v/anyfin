@@ -1,30 +1,16 @@
 
-#include "anyfin/base.hpp"
+#define STARTUP_HPP_IMPL
 
-#include "anyfin/core/arena.hpp"
-#include "anyfin/core/lifecycle.hpp"
-#include "anyfin/core/option.hpp"
 #include "anyfin/core/strings.hpp"
-#include "anyfin/core/trap.hpp"
+#include "anyfin/core/option.hpp"
 
-/*
-  Defined in Win32 kernel32 library.
- */
-extern "C" const char * GetCommandLineA();
+#include "anyfin/platform/startup.hpp"
 
-namespace Fin::Core {
-static inline int launch();
-}
-
-extern "C" int mainCRTStartup () {
-  return Fin::Core::launch();
-}
-
-namespace Fin::Core {
+namespace Fin::Platform {
 
 struct Command_Line_Input {
-  String_View         program_name;
-  Option<String_View> arguments_string;
+  Core::String_View program_name;
+  Core::Option<Core::String_View> arguments_string;
 };
 
 static inline Command_Line_Input get_command_line () {
@@ -41,33 +27,33 @@ static inline Command_Line_Input get_command_line () {
   while (*cursor == ' ') cursor += 1;
 
   // No arguments were passed.
-  if (!*cursor) return Command_Line_Input { String_View(input, program_name_length) };
+  if (!*cursor) return Command_Line_Input { Core::String_View(input, program_name_length) };
 
   auto args_string = cursor;
   usize args_string_length = 0;
   while (cursor[args_string_length]) args_string_length += 1;
 
   return Command_Line_Input {
-    .program_name     = String_View(input, program_name_length),
-    .arguments_string = Option(String_View(args_string, args_string_length))
+    .program_name     = Core::String_View(input, program_name_length),
+    .arguments_string = Core::Option(Core::String_View(args_string, args_string_length))
   };
 }
 
-static inline usize find_value_end_position (const String_View &input) {
+static inline usize find_value_end_position (const Core::String_View &input) {
   usize offset = 0;
   while (input[offset] != ' ') offset += 1;
 
   return offset;
 }
 
-static inline void collect_input_arguments (const String_View &command_line, Startup_Argument args[], usize args_count) {
-  const auto skip_whitespace = [] (const String_View &input) -> usize {
+static inline void collect_input_arguments (const Core::String_View &command_line, Startup_Argument args[], usize args_count) {
+  const auto skip_whitespace = [] (const Core::String_View &input) -> usize {
     usize offset = 0;
     while (input[offset] == ' ') offset += 1;
     return offset;
   };
 
-  const auto parse_argument = [] (const String_View &arg) -> auto {
+  const auto parse_argument = [] (const Core::String_View &arg) -> auto {
     s32 eq_offset = -1;
     for (s32 i = 0; i < s32(arg.length); i++) {
       if (arg[i] == '=') { eq_offset = i; break; }
@@ -77,8 +63,8 @@ static inline void collect_input_arguments (const String_View &command_line, Sta
 
     if (eq_offset > 0) return Startup_Argument {
       .type  = Startup_Argument::Type::Pair,
-      .key   = String_View(arg.value, eq_offset - 1),
-      .value = String_View(),
+      .key   = Core::String_View(arg.value, eq_offset - 1),
+      .value = Core::String_View(),
     };
 
     return Startup_Argument {
@@ -89,18 +75,18 @@ static inline void collect_input_arguments (const String_View &command_line, Sta
 
   usize count = 0;
 
-  String_View cursor = command_line;
+  Core::String_View cursor = command_line;
   for (usize arg_index = 0; arg_index < args_count; arg_index++) {
     auto value_start = cursor + skip_whitespace(cursor);
     if (!value_start[0]) break;
     
     auto value_length = find_value_end_position(value_start);
 
-    args[arg_index] = parse_argument(String_View(value_start.value, value_length));
+    args[arg_index] = parse_argument(Core::String_View(value_start.value, value_length));
   }
 }
 
-static inline u32 count_arguments (const String_View &input) {
+static inline u32 count_arguments (const Core::String_View &input) {
   u32 arguments_count = 0;
 
   auto cursor = input.value;
@@ -115,21 +101,9 @@ static inline u32 count_arguments (const String_View &input) {
   return arguments_count;
 }
 
-static inline int launch () {
-  assert(false); // Setup default global allocator
-  
-  auto [_, arguments_string_opt] = get_command_line();
-
-  if (!arguments_string_opt) return app_entry({});
-
-  auto arguments_string = *arguments_string_opt;
-  auto count = count_arguments(arguments_string);
-
-  Startup_Argument args[count];
-  collect_input_arguments(arguments_string, args, count);
-
-  return app_entry(Slice(args, count));
+static Core::Array<Startup_Argument> get_startup_args (Core::Allocator auto &allocator) {
+  return {};
 }
 
-}
 
+}

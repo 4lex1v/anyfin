@@ -8,13 +8,22 @@ namespace Fin::Core {
 
 struct Timer_Error {};
 
-Result<Timer_Error, void> enable_high_precision_timer ();
-void disable_high_precision_timer ();
+static Result<Timer_Error, void> enable_high_precision_timer ();
 
-u64 get_timer_frequency ();
+static void disable_high_precision_timer ();
 
-u64 get_timer_value ();
+static u64 get_timer_frequency ();
 
-u64 get_elapsed_millis (u64 frequency, u64 from, u64 to);
+static u64 get_timer_value ();
+
+static u64 get_elapsed_millis (u64 frequency, u64 from, u64 to);
 
 }
+
+#ifndef TIMERS_HPP_IMPL
+  #ifdef PLATFORM_WIN32
+    #include "timers_win32.hpp"
+  #else
+    #error "Unsupported platform"
+  #endif
+#endif

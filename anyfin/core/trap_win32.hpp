@@ -1,18 +1,16 @@
 
 #define TRAP_HPP_IMPL
 
-#include "anyfin/core/win32.hpp"
-
 #include "anyfin/core/trap.hpp"
-#include "anyfin/core/strings.hpp"
+#include "anyfin/core/win32.hpp"
 
 namespace Fin::Core {
 
-// static Crash_Handler crash_handler;
+static Crash_Handler crash_handler;
 
-// void set_crash_handler (Crash_Handler handler) {
-//   crash_handler = handler;
-// }
+static void set_crash_handler (Crash_Handler handler) {
+  crash_handler = handler;
+}
 
 static void trap (const char *message) {
   auto message_length = 0;
@@ -21,7 +19,7 @@ static void trap (const char *message) {
   auto stdout = GetStdHandle(STD_OUTPUT_HANDLE);
   WriteConsole(stdout, message, message_length, nullptr, nullptr);
   
-  //crash_handler(1);
+  crash_handler(1);
   __builtin_unreachable();
 }
 

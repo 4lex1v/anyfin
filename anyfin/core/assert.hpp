@@ -31,7 +31,16 @@ namespace Fin::Core {
   `assert_hook` allows us to inject custom logic into the core library, which is helpful in test environment,
   to capture corner cases.
  */
-void assert_hook (const char *expr, const char *message, const Callsite_Info callsite = Callsite_Info());
+static void assert_hook (const char *expr, const char *message, const Callsite_Info callsite = Callsite_Info());
 
 }
+
+#ifndef ASSERT_HPP_IMPL
+  #ifdef PLATFORM_WIN32
+    #include "assert_win32.hpp"
+  #else
+    #error "Unsupported platform"
+  #endif
+#endif
+
 

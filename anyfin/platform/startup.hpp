@@ -1,13 +1,10 @@
 
 #pragma once
 
-#include "anyfin/base.hpp"
-
-#include "anyfin/core/memory.hpp"
-#include "anyfin/core/slice.hpp"
+#include "anyfin/core/arrays.hpp"
 #include "anyfin/core/strings.hpp"
 
-namespace Fin::Core {
+namespace Fin::Platform {
 
 /*
   Represents the CLI input argument, which is either an individual value, whatever it may be,
@@ -18,17 +15,21 @@ struct Startup_Argument {
 
   Type type;
 
-  String_View key;
-  String_View value;
+  Core::String_View key;
+  Core::String_View value;
 
   constexpr bool is_pair  () const { return type == Type::Pair; }
   constexpr bool is_value () const { return type == Type::Value; }
 };
 
-/*
-  Main entry function defined by the application
-*/
-u32 app_entry (Slice<Startup_Argument>);
+static Core::Array<Startup_Argument> get_startup_args (Core::Allocator auto &allocator);
 
 }
 
+#ifndef STARTUP_HPP_IMPL
+  #ifdef PLATFORM_WIN32
+    #include "startup_win32.hpp"
+  #else
+    #error "Unsupported platform"
+  #endif
+#endif
