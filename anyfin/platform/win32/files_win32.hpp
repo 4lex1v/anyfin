@@ -30,18 +30,6 @@ Result<File> open_file (const File_Path &path, const Core::Bit_Mask<Open_File_Fl
   return Core::Ok(File(reinterpret_cast<File::Handle *>(handle)));
 }
 
-Result<File_Path> get_working_directory_path (Core::Allocator_View allocator) {
-  auto buffer_size = GetCurrentDirectory(0, nullptr);
-  if (buffer_size == 0) return Core::Error(get_system_error());
-  
-  auto buffer = reinterpret_cast<char *>(reserve_memory(allocator, buffer_size));
-
-  auto path_length = GetCurrentDirectory(buffer_size, buffer);
-  if (!path_length) return Core::Error(get_system_error());
-
-  return Core::Ok(File_Path(buffer, path_length, allocator));
-}
-
 static Result<void> create_directory_recursive_inner (char *path, const usize length) {
   auto attributes = GetFileAttributes(path);
 
@@ -127,38 +115,6 @@ static inline Result<void> delete_directory_recursive (Core::Allocator auto &all
   return Core::Ok();
 }
 
-static Result<void> list_directory_files_step (const File_Path &directory, const Core::String_View &extension, bool recurse, Core::List<File_Path> &file_list) {
-  auto query = format_string(allocator, "%\\*", directory);
-
-  WIN32_FIND_DATAA data;
-  HANDLE search_handle;
-  defer { FindClose(search_handle); };
-
-  if ((search_handle = FindFirstFileA(query, &data)) != INVALID_HANDLE_VALUE) {
-    do {
-      if (strcmp(data.cFileName, ".") != 0 && strcmp(data.cFileName, "..") != 0) {
-        if (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-          if (recurse) {
-            auto subfolder = format_string(allocator, "%\\%", directory, Core::String_View(data.cFileName));
-            check(list_directory_files_step(subfolder, extension, recurse, file_list));
-          }
-        } else {
-          if (ends_with(Core::String_View(data.cFileName), extension)) continue;
-          
-          // The reservation size includes the path separator and terminating null
-          auto reservation_size = directory.length + strlen(data.cFileName) + 2;
-
-          auto file_path = format_string(allocator, "%\\%s", directory, Core::String_View(data.cFileName));
-          if (!file_list.contains([&file_path] (auto it) { return compare_strings(it, file_path); }))
-            list_push(file_list, move(file_path));
-        }
-      }
-    } while (FindNextFileA(search_handle, &data) != 0);
-  }
-
-  return Core::Ok();
-}
-
 Result<Core::List<File_Path>> list_files_in_directory (const Core::Allocator &allocator, const File_Path &directory,
                                                        const Core::String_View &extension, bool recursive) {
   Core::List<File_Path> file_list { allocator };
@@ -167,52 +123,6 @@ Result<Core::List<File_Path>> list_files_in_directory (const Core::Allocator &al
   if (!result) return Core::Error(result.status);
 
   return Core::Ok(file_list);
-  
-  // char path[MAX_PATH];
-  // snprintf(path, MAX_PATH, );
-  // format_string(allocator, "%.*s\\*", (int)absolute_file_path.length, absolute_file_path.value);
-
-  // WIN32_FIND_DATAA data;
-  // HANDLE search_handle;
-  // defer { FindClose(search_handle); };
-
-  // auto has_extension = [&extension] (const WIN32_FIND_DATAA &data) -> bool {
-  //   auto file_name = Core::String_View(data.cFileName);
-  //   return compare_strings(file_name, extension);
-  // };
-
-  // auto check_if_path_already_included = [] (const List<File_Path> *paths, const File_Path *path) -> bool {
-  //   for (auto &included_path: *paths) {
-  //     if (compare_strings(included_path, *path)) return true;
-  //   }
-
-  //   return false;
-  // };
-
-  // if ((search_handle = FindFirstFileA(path, &data)) != INVALID_HANDLE_VALUE) {
-  //   do {
-  //     if (strcmp(data.cFileName, ".") != 0 && strcmp(data.cFileName, "..") != 0) {
-  //       if (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-  //         if (recursive) {
-  //           snprintf(path, MAX_PATH, "%.*s\\%s", (int)absolute_file_path.length, absolute_file_path.value, data.cFileName);
-  //           list_files_in_directory(arena, list, path, extension, recursive);
-  //         }
-  //       } else {
-  //         if (!has_extension(&data, extension)) continue;
-          
-  //         // The reservation size includes the path separator and terminating null
-  //         auto reservation_size = absolute_file_path.length + strlen(data.cFileName) + 2;
-  //         auto file_path = reserve_array<char>(arena, reservation_size);
-
-  //         snprintf(file_path, reservation_size, "%.*s\\%s", (int)absolute_file_path.length, absolute_file_path.value, data.cFileName);
-
-  //         if (auto new_path = File_Path(file_path);
-  //             !check_if_path_already_included(list, &new_path))
-  //           add(arena, list, new_path);
-  //       }
-  //     }
-  //   } while (FindNextFileA(search_handle, &data) != 0);
-  // }
 }
 
 Result<u64> get_file_size (const File &file) {
@@ -236,16 +146,6 @@ Result<u64> get_file_id (const File &file) {
 }
 
 Result<Core::Option<File_Path>> get_parent_folder_path (const File &file) {
-  auto [tag, error, path] = get_absolute_path(file.path);
-  if (!tag) return Core::move(error);
-
-  for (usize idx = path.length; idx > 0; idx--) {
-    if (path.value[idx] == '/' || path.value[idx] == '\\') {
-      return Core::Option(File_Path(path.substring(0, idx)));
-    }
-  }
-  
-  return Core::Option<File_Path> {};
 }
 
 }

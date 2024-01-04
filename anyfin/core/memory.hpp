@@ -5,6 +5,11 @@
 
 #include "anyfin/core/meta.hpp" // for the is_pointer check is align function
 
+extern "C" {
+void * memset (void *destination, int value, size_t count);
+void * memcpy (void *destination, const void *source, size_t count);
+}
+
 namespace Fin::Core {
 
 template <typename T>
@@ -34,13 +39,12 @@ static void zero_memory (auto *memory, const usize count) {
 }
 
 template <typename T>
-static inline bool compare_bytes (const T *a, const T *b, const usize count) {
+static bool compare_bytes (const T *a, const T *b, const usize count) {
   auto value_a = reinterpret_cast<const u8 *>(a);
   auto value_b = reinterpret_cast<const u8 *>(b);
 
-  for (usize idx = 0; idx < count; idx++)
-    if (value_a[idx] != value_b[idx])
-      return false;
+  for (usize idx = 0; idx < (sizeof(T) * count); idx++)
+    if (value_a[idx] != value_b[idx]) return false;
 
   return true;
 }

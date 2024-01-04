@@ -6,6 +6,7 @@
 #include "anyfin/core/bit_mask.hpp"
 #include "anyfin/core/meta.hpp"
 #include "anyfin/core/strings.hpp"
+#include "anyfin/core/slice.hpp"
 
 #include "anyfin/platform/platform.hpp"
 
@@ -81,7 +82,7 @@ static Result<bool> check_resource_exists (const File_Path &path, Resource_Type 
   If the resource does exist, attempt to delete it.
   If the resource is a directory that has content, it will be recursively deleted.
  */
-static Result<void> delete_resource (const File_Path &path, Resource_Type resource_type);
+static Result<void> delete_resource (Core::Allocator auto &allocator, const File_Path &path, Resource_Type resource_type);
 
 /*
   Extracts the resource (directory or file) name from the path, regardless if the actual
@@ -103,17 +104,18 @@ struct File {
   File_Path path;
 };
 
-static Result<File> open_file (Core::Allocator auto &allocator, const File_Path &path, Core::Bit_Mask<File_System_Flags> flags = {});
+static Result<File> open_file (File_Path &&path, Core::Bit_Mask<File_System_Flags> flags = {});
 
 static Result<void> close_file (File &file);
 
 static Result<u64> get_file_size (const File &file); 
 
+// TODO: Fix this. On Windows the unique id is at least 128 bytes?
 static Result<u64> get_file_id (const File &file);
 
-static Result<void> write_buffer_to_file (File &file, const Core::Iterable<const u8> auto &bytes);
+static Result<void> write_buffer_to_file (File &file, const Core::Slice<const u8> &bytes);
 
-static void reset_file_cursor (File &file);
+static Result<void> reset_file_cursor (File &file);
 
 static Result<u64> get_last_update_timestamp (const File &file);
 

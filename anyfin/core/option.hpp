@@ -1,97 +1,77 @@
 
 #pragma once
 
+#include "anyfin/base.hpp"
+
 #include "anyfin/core/meta.hpp"
 #include "anyfin/core/trap.hpp"
 
 namespace Fin::Core {
 
+struct None {};
+constexpr inline None opt_none = None{};
+
 template <typename T>
 struct Option {
   using Value_Type = T;
 
-  const bool has_value = false;
-  alignas(T) char storage[sizeof(T)] {};
+  bool has_value = false;
+  T    value;
 
-  constexpr Option () = default;
+  constexpr Option ()     = default;
+  constexpr Option (None): has_value { false } {}
+
   constexpr Option (Value_Type &&_value)
-    : has_value { true }
+    : has_value { true },
+      value { move(_value) }
+  {}
+
+  constexpr Option (Option<T> &&other)
+    : has_value { other.has_value },
+      value     { move(other.value) }
   {
-    new (this->storage) T (move(_value));
+    destroy(other);
   }
 
   constexpr Option (const Option<T> &other)
-    : has_value { true }
-  {
-    memcpy(this->storage, other.storage, sizeof(T));
-  }
+    : has_value { true },
+      value     { other.value }
+  {}
 
   constexpr bool is_some () const { return this->has_value; }
   constexpr bool is_none () const { return !this->has_value; }
 
   constexpr operator bool () const { return is_some(); }
 
-  constexpr auto& operator = (Option<T> &&other) {
-    if (this->has_value) {
-      auto obj = reinterpret_cast<T *>(this->storage);
-      obj->~T();
-    }
+  constexpr Option<T>& operator = (Option<T> &&other) {
+    destroy(*this);
 
-    auto &obj = *reinterpret_cast<T *>(other.storage);
-    new (this->storage) T { move(obj) };
-    *const_cast<bool *>(&this->has_value) = true;
+    this->has_value = true;
+    this->value     = move(other.value);
 
-    *const_cast<bool *>(&other.has_value) = false;
+    destroy(other);
 
     return *this;
   }
 
   constexpr const Value_Type * operator -> () const {
     if (is_none()) return nullptr;
-    return reinterpret_cast<const Value_Type *>(this->storage);
+    return &this->value;
   }
 
-  constexpr const Value_Type & operator * () const & {
-    if (is_none()) [[unlikely]] trap("Attempt to dereference an empty Option value");
-    return get();
-  }
-
-  constexpr Value_Type & operator * () & {
-    if (is_none()) [[unlikely]] trap("Attempt to dereference an empty Option value");
-    return get();
-  }
-
-  constexpr Value_Type && operator * () && {
-    if (is_none()) [[unlikely]] trap("Attempt to dereference an empty Option value");
-    return move(reinterpret_cast<Value_Type *>(this->value));
-  }
-
-  constexpr Value_Type && take (const char *message) {
+  constexpr const Value_Type & get (const char *message = "Attempt to dereference an empty Option value") const {
     if (is_none()) [[unlikely]] trap(message);
-    return move(*reinterpret_cast<Value_Type *>(this->storage));
+    return this->value;
   }
 
-  constexpr Value_Type && take () {
-    if (is_none()) [[unlikely]] trap("Attempt to deference an empty Option value");
-    return move(*reinterpret_cast<Value_Type *>(this->storage));
-  }
-
-  constexpr const Value_Type & get (const char *message) const {
+  constexpr Value_Type & get (const char *message = "Attempt to dereference an empty Option value") {
     if (is_none()) [[unlikely]] trap(message);
-    return *reinterpret_cast<const Value_Type *>(this->storage);
+    return this->value;
   }
 
-  constexpr const Value_Type & get () const {
-    return get("Attempt to dereference an empty Option value");
-  }
-
-  constexpr Value_Type & get (const char *message) {
+  constexpr Value_Type && take (const char *message = "Attempt to deference an empty Option value") {
     if (is_none()) [[unlikely]] trap(message);
-    return *reinterpret_cast<Value_Type *>(this->storage);
-  }
-
-  constexpr Value_Type & get () {
-    return get("Attempt to dereference an empty Option value");
+    return move(this->value); 
   }
 
   constexpr void handle_value (const Invocable<void, const T &> auto &closure) const {
@@ -99,4 +79,15 @@ struct Option {
   }
 };
 
+template <typename T>
+static void destroy (Option<T> &option) {
+  if (option) {
+    if constexpr (Destructible<T>) destroy(option.value);
+    else                           option.value.~T();
+
+    option.has_value = false;
+  }
 }
+
+}
+

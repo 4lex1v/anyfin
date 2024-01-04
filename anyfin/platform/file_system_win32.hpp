@@ -2,6 +2,9 @@
 #define FILE_SYSTEM_HPP_IMPL
 
 #include "anyfin/core/option.hpp"
+#include "anyfin/core/slice.hpp"
+#include "anyfin/core/strings.hpp"
+#include "anyfin/core/meta.hpp"
 
 #include "anyfin/platform/file_system.hpp"
 
@@ -17,7 +20,15 @@ constexpr Core::String_View get_object_extension()         { return "obj"; }
 static Result<void> create_resource (const File_Path &path, const Resource_Type resource_type, const Core::Bit_Mask<File_System_Flags> flags) {
   switch (resource_type) {
     case Resource_Type::File: {
-      Core::trap("Unimplemented");
+      using enum File_System_Flags;
+      
+      auto access  = GENERIC_READ    | ((flags & Write_Access) ? GENERIC_WRITE    : 0);
+      auto sharing = FILE_SHARE_READ | ((flags & Shared_Write) ? FILE_SHARE_WRITE : 0); 
+
+      auto handle = CreateFile(path.value, access, sharing, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
+      if (handle == INVALID_HANDLE_VALUE) return get_system_error();
+
+      return Core::Ok();
     }
     case Resource_Type::Directory: {
       if (CreateDirectory(path, NULL))            return Core::Ok();
@@ -38,25 +49,59 @@ static Result<bool> check_resource_exists (const File_Path &path, Resource_Type 
   }
 }
 
-static Result<void> delete_resource (const File_Path &path, Resource_Type resource_type) {
+template <Core::Allocator Alloc_Type>
+static Result<void> delete_directory_recursive (Alloc_Type &allocator, const File_Path &path) {
+  auto directory_search_query = format_string(allocator, "%\\*", path);
+  defer { smart_destroy<Alloc_Type>(directory_search_query); };
+  
+  WIN32_FIND_DATA data;
+  auto search_handle = FindFirstFile(directory_search_query, &data);
+  if (search_handle == INVALID_HANDLE_VALUE) return Core::Error(get_system_error());
+  defer { FindClose(search_handle); };
+
+  do {
+    if (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+      if ((compare_strings(String_View(data.cFileName), ".") != 0) &&
+          (compare_strings(String_View(data.cFileName), "..") != 0)) {
+        auto subpath = format_string(allocator, "%\\%", path, Core::String_View(data.cFileName));
+        defer { smart_destroy<Alloc_Type>(subpath); };
+
+        auto result = delete_directory_recursive(allocator, subpath);
+        if (!result) return result;
+      }
+    }
+    else {
+      auto subpath = format_string(allocator, "%\\%", path, Core::String_View(data.cFileName));
+      defer { smart_destroy<Alloc_Type>(subpath); };
+
+      auto result = delete_resource(allocator, subpath, Resource_Type::File);
+      if (!result) return result;
+    }
+  } while (FindNextFile(search_handle, &data));
+
+  if (!RemoveDirectory(path.value)) return Core::Error(get_system_error());
+
+  return Core::Ok();
+}
+
+static Result<void> delete_resource (Core::Allocator auto &allocator, const File_Path &path, Resource_Type resource_type) {
   switch (resource_type) {
     case Resource_Type::File: {
-      Core::trap("Unimplemented");
+      if (!DeleteFile(path.value)) {
+        if (GetLastError() == ERROR_FILE_NOT_FOUND) return Core::Ok();
+        return get_system_error();
+      }
+
+      return Core::Ok();
     }
     case Resource_Type::Directory: {
       if (RemoveDirectory(path.value)) return Core::Ok();
 
-      const auto error_code = GetLastError();
-
+      auto error_code = GetLastError();
+      if (error_code == ERROR_DIR_NOT_EMPTY)  return delete_directory_recursive(allocator, path);
       if (error_code == ERROR_FILE_NOT_FOUND) return Core::Ok();
 
-      if (error_code == ERROR_DIR_NOT_EMPTY) {
-        Core::trap("Unimplemented");
-        // Core::Scope_Allocator local { allocator };
-        // return delete_directory_recursive(local, path);
-      }
-
-      return Core::Error(get_system_error());
+      return get_system_error();
     }
   }
 }
@@ -89,52 +134,178 @@ static Result<File_Path> get_absolute_path (Core::Allocator auto &allocator, con
   return Core::Ok(File_Path(allocator, buffer, full_path_name_length));
 }
 
-static Result<Core::Option<File_Path>> get_parent_folder_path (Core::Allocator auto &allocator, const File_Path &file) {
-  Core::trap("Unimplemented");
+static Result<Core::Option<File_Path>> get_parent_folder_path (Core::Allocator auto &allocator, const File_Path &_path) {
+  auto [tag, error, path] = get_absolute_path(allocator, _path);
+  if (!tag) return Core::move(error);
+
+  for (usize idx = path.length; idx > 0; idx--) {
+    if (path.value[idx] == '/' || path.value[idx] == '\\') {
+      return Core::Option(Core::String::copy(allocator, path.value, idx));
+    }
+  }
+  
+  return Core::Option<File_Path> {};
 }
 
 static Result<File_Path> get_working_directory_path (Core::Allocator auto &allocator) {
-  Core::trap("Unimplemented");
+  auto buffer_size = GetCurrentDirectory(0, nullptr);
+  if (buffer_size == 0) return Core::Error(get_system_error());
+  
+  auto buffer = reserve_memory<char>(allocator, buffer_size);
+
+  auto path_length = GetCurrentDirectory(buffer_size, buffer);
+  if (!path_length) return get_system_error();
+
+  return File_Path(allocator, buffer, path_length);
+}
+
+template <Core::Allocator Alloc_Type>
+static Result<void> list_directory_files_step (Alloc_Type &allocator, const File_Path &directory, const Core::String_View &extension, bool recurse, Core::List<File_Path> &file_list) {
+  auto query = format_string(allocator, "%\\*", directory);
+  defer { smart_destroy<Alloc_Type>(query); };
+
+  WIN32_FIND_DATAA data;
+  HANDLE search_handle;
+  defer { FindClose(search_handle); };
+
+  if ((search_handle = FindFirstFileA(query, &data)) != INVALID_HANDLE_VALUE) {
+    do {
+      if (compare_strings(String_View(data.cFileName), ".") ||
+          compare_strings(String_View(data.cFileName), "..")) continue;
+
+      if (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY && recurse) {
+        auto subfolder = format_string(allocator, "%\\%", directory, Core::String_View(data.cFileName));
+        defer { smart_destroy<Alloc_Type>(subfolder); };
+
+        list_directory_files_step(allocator, subfolder, extension, recurse, file_list).expect();
+      }
+      else {
+        if (ends_with(Core::String_View(data.cFileName), extension)) continue;
+          
+        auto file_path = make_file_path(allocator, "%\\%", directory, Core::String_View(data.cFileName));
+        if (!file_list.contains([&file_path] (auto &it) { return compare_strings(it, file_path); }))
+          list_push(file_list, move(file_path));
+      }
+
+    } while (FindNextFileA(search_handle, &data) != 0);
+  }
+
+  return Core::Ok();
 }
 
 static Result<Core::List<File_Path>> list_files (Core::Allocator auto &allocator, const File_Path &directory, const Core::String_View &extension, bool recursive) {
-  Core::trap("Unimplemented");
+  Core::List<File_Path> file_list { allocator };
+
+  auto result = list_directory_files_step(allocator, directory, extension, recursive, file_list);
+  if (!result) return Core::Error(result.status);
+
+  return Core::Ok(file_list);
 }
 
-static Result<File> open_file (Core::Allocator auto &allocator, const File_Path &path, Core::Bit_Mask<File_System_Flags> flags) {
-  Core::trap("Unimplemented");
+static Result<File> open_file (File_Path &&path, Core::Bit_Mask<File_System_Flags> flags) {
+  using enum File_System_Flags;
+
+  auto access  = GENERIC_READ    | ((flags & Write_Access) ? GENERIC_WRITE    : 0);
+  auto sharing = FILE_SHARE_READ | ((flags & Shared_Write) ? FILE_SHARE_WRITE : 0); 
+  auto status  = (flags & Create_Missing) ? OPEN_ALWAYS : OPEN_EXISTING;
+  
+  auto handle = CreateFile(path.value, access, sharing, NULL, status, FILE_ATTRIBUTE_NORMAL, NULL);
+  if (handle == INVALID_HANDLE_VALUE) return get_system_error();
+
+  return File { handle, move(path) };
 }
 
 static Result<void> close_file (File &file) {
-  Core::trap("Unimplemented");
+  if (CloseHandle(file.handle) == 0) return get_system_error();
+  file.handle = nullptr;
+  return Core::Ok();
 }
 
 static Result<u64> get_file_size (const File &file) {
-  Core::trap("Unimplemented");
+  LARGE_INTEGER file_size;
+  if (GetFileSizeEx(file.handle, &file_size) == false) return get_system_error();
+
+  return file_size.QuadPart;
 }
 
 static Result<u64> get_file_id (const File &file) {
-  Core::trap("Unimplemented");
+  FILE_ID_INFO id_info;
+  if (!GetFileInformationByHandleEx(file.handle, FileIdInfo, &id_info, sizeof(id_info)))
+    return get_system_error();
+
+  return Core::Ok(*reinterpret_cast<u64 *>(id_info.FileId.Identifier));
 }
 
-static Result<void> write_buffer_to_file (File &file, const Core::Iterable<const u8> auto &bytes) {
-  Core::trap("Unimplemented");
+static Result<void> write_buffer_to_file (File &file, const Core::Slice<const u8> &bytes) {
+  DWORD total_bytes_written = 0;
+  while (total_bytes_written < bytes.count) {
+    DWORD bytes_written = 0;
+    if (!WriteFile(file.handle, bytes.elements + total_bytes_written, 
+                   bytes.count - total_bytes_written, &bytes_written, nullptr)) {
+      return get_system_error();
+    }
+
+    if (bytes_written == 0) {
+      // No more bytes were written, could be a device error or a full disk.
+      return get_system_error();  // or a custom error indicating partial write
+    }
+
+    total_bytes_written += bytes_written;
+  }
+
+  return Core::Ok();
 }
 
-static void reset_file_cursor (File &file) {
-  Core::trap("Unimplemented");
+static Result<void> reset_file_cursor (File &file) {
+  if (SetFilePointer(file.handle, 0, nullptr, FILE_BEGIN) == INVALID_SET_FILE_POINTER)
+    return get_system_error();
+
+  return Core::Ok();
 }
 
 static Result<u64> get_last_update_timestamp (const File &file) {
-  Core::trap("Unimplemented");
+  FILETIME last_update = {};
+  if (!GetFileTime(file.handle, 0, 0, &last_update)) return get_system_error();
+
+  ULARGE_INTEGER value;
+  value.HighPart = last_update.dwHighDateTime;
+  value.LowPart  = last_update.dwLowDateTime;
+
+  return static_cast<u64>(value.QuadPart);
 }
 
 static Result<File_Mapping> map_file_into_memory (const File &file) {
-  Core::trap("Unimplemented");
+  if (!get_file_size(file)) return File_Mapping {};
+  
+  auto handle = CreateFileMapping(file.handle, nullptr, PAGE_READONLY, 0, 0, nullptr);
+  if (handle == nullptr) return get_system_error();
+
+  auto memory = MapViewOfFile(handle, FILE_MAP_READ, 0, 0, 0);
+  if (memory == nullptr) { CloseHandle(handle); return get_system_error(); }
+
+  auto [has_failed, error, mapping_size] = get_file_size(file);
+  if (!has_failed) {
+    UnmapViewOfFile(memory);
+    CloseHandle(handle);
+    return Core::Error(error);
+  }
+
+  return File_Mapping {
+    .handle = handle,
+    .memory = reinterpret_cast<char *>(memory),
+    .size   = mapping_size
+  };
 }
 
 static Result<void> unmap_file (File_Mapping &mapping) {
-  Core::trap("Unimplemented");
+  // Windows doesn't allow mapping empty files. I'm not treating this as an error, thus
+  // it should be handled gracefully here as well.
+  if (!mapping.handle) return Core::Ok();
+  
+  if (!UnmapViewOfFile(mapping.memory))  return get_system_error();
+  if (!CloseHandle(mapping.handle))      return get_system_error();
+
+  return Core::Ok();
 }
 
 }

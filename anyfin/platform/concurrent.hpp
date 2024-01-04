@@ -30,11 +30,19 @@ struct Semaphore {
   Handle *handle;
 };
 
-Result<Semaphore> create_semaphore (u32 count = static_cast<u32>(-1));
-Result<void> destroy_semaphore (Semaphore &semaphore);
+static Result<Semaphore> create_semaphore (u32 count = static_cast<u32>(-1));
+static Result<void> destroy_semaphore (Semaphore &semaphore);
 
-Result<u32> increment_semaphore (Semaphore &semaphore, u32 increment_value = 1);
+static Result<u32> increment_semaphore (Semaphore &semaphore, u32 increment_value = 1);
 
-Result<void> wait_for_semaphore_signal (const Semaphore &sempahore);
+static Result<void> wait_for_semaphore_signal (const Semaphore &sempahore);
 
 }
+
+#ifndef CONCURRENT_HPP_IMPL
+  #ifdef PLATFORM_WIN32
+    #include "concurrent_win32.hpp"
+  #else
+    #error "Unsupported platform"
+  #endif
+#endif

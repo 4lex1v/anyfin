@@ -13,7 +13,7 @@ struct Command_Line_Input {
   Core::Option<Core::String_View> arguments_string;
 };
 
-static inline Command_Line_Input get_command_line () {
+static Command_Line_Input get_command_line () {
   auto input = GetCommandLineA();
 
   auto cursor = input;
@@ -39,70 +39,62 @@ static inline Command_Line_Input get_command_line () {
   };
 }
 
-static inline usize find_value_end_position (const Core::String_View &input) {
-  usize offset = 0;
-  while (input[offset] != ' ') offset += 1;
+static void collect_input_arguments(const Core::String_View &command_line, Core::Array<Startup_Argument> &args) {
+  const auto is_whitespace = [] (char value) { return value == ' ' || value == '\t'; };
+  const char *cursor = command_line.value;
 
-  return offset;
-}
+  for (usize arg_index = 0; arg_index < args.count && cursor && *cursor; ++arg_index) {
+    while (*cursor && is_whitespace(*cursor)) ++cursor;
 
-static inline void collect_input_arguments (const Core::String_View &command_line, Startup_Argument args[], usize args_count) {
-  const auto skip_whitespace = [] (const Core::String_View &input) -> usize {
-    usize offset = 0;
-    while (input[offset] == ' ') offset += 1;
-    return offset;
-  };
+    const char *start = cursor;
+    while (*cursor && !is_whitespace(*cursor)) ++cursor;
 
-  const auto parse_argument = [] (const Core::String_View &arg) -> auto {
+    Core::String_View token(start, cursor - start);
     s32 eq_offset = -1;
-    for (s32 i = 0; i < s32(arg.length); i++) {
-      if (arg[i] == '=') { eq_offset = i; break; }
+    for (s32 i = 0; i < s32(token.length); i++) {
+      if (token[i] == '=') { eq_offset = i; break; }
     }
 
-    if (eq_offset == 0) assert(false); // TODO: Handle bad argument
-
-    if (eq_offset > 0) return Startup_Argument {
-      .type  = Startup_Argument::Type::Pair,
-      .key   = Core::String_View(arg.value, eq_offset - 1),
-      .value = Core::String_View(),
-    };
-
-    return Startup_Argument {
-      .type = Startup_Argument::Type::Value,
-      .key  = arg
-    };
-  };
-
-  usize count = 0;
-
-  Core::String_View cursor = command_line;
-  for (usize arg_index = 0; arg_index < args_count; arg_index++) {
-    auto value_start = cursor + skip_whitespace(cursor);
-    if (!value_start[0]) break;
-    
-    auto value_length = find_value_end_position(value_start);
-
-    args[arg_index] = parse_argument(Core::String_View(value_start.value, value_length));
+    if (eq_offset > 0) {
+      args[arg_index] = Startup_Argument {
+        .type  = Startup_Argument::Type::Pair,
+        .key   = Core::String_View(token.value, eq_offset),
+        .value = Core::String_View(token.value + eq_offset + 1, token.length - (eq_offset + 1)),
+      };
+    } else {
+      args[arg_index] = Startup_Argument {
+        .type = Startup_Argument::Type::Value,
+        .key  = token
+      };
+    }
   }
 }
 
-static inline u32 count_arguments (const Core::String_View &input) {
-  u32 arguments_count = 0;
+static u32 count_arguments (const Core::String_View &input) {
+  if (is_empty(input)) return 0;
 
   auto cursor = input.value;
-  while (true) {
-    while (*cursor && *cursor != ' ') cursor += 1;
-    if (!*cursor) break; // end of input reached
 
-    arguments_count += 1;
-    while (*cursor && *cursor == ' ') cursor += 1;
+  int count = 0, in_token = 0;
+  for (; cursor && *cursor; ++cursor) {
+    const auto is_space_or_tab = *cursor == ' ' || *cursor == '\t';
+    count += (!in_token && !is_space_or_tab);
+    in_token = !is_space_or_tab;
   }
 
-  return arguments_count;
+  return count;
 }
 
 static Core::Array<Startup_Argument> get_startup_args (Core::Allocator auto &allocator) {
-  return {};
+  auto [has_arguments, arguments] = get_command_line().arguments_string;
+  if (!has_arguments) return {};
+
+  auto args_count = count_arguments(arguments);
+  auto args       = reserve_array<Startup_Argument>(allocator, args_count);
+
+  collect_input_arguments(arguments, args);
+
+  return args;
 }
 
 

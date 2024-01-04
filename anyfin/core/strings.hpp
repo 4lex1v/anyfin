@@ -5,6 +5,7 @@
 
 #include "anyfin/core/allocator.hpp"
 #include "anyfin/core/assert.hpp"
+#include "anyfin/core/memory.hpp"
 #include "anyfin/core/meta.hpp"
 #include "anyfin/core/prelude.hpp"
 #include "anyfin/core/trap.hpp"
@@ -36,7 +37,7 @@ struct String_View {
 
   template <usize N>
   constexpr String_View (const char (&literal)[N])
-    : value { literal }, length { N } {}
+    : value { literal }, length { N - 1 } {}
 
   constexpr String_View (const char *_value, usize _length)
     : value { _value }, length { _length } {}
@@ -155,20 +156,12 @@ private:
   }
 };
 
-static inline void destroy (String &string, const Callsite_Info info = Callsite_Info()) {
+static void destroy (String &string, const Callsite_Info info = Callsite_Info()) {
   free_reservation(string.allocator, (void*)string.value, info);
 }
 
 constexpr String_View::String_View (const String &string)
   : value { string.value }, length { string.length } {}
-
-// static String substring (const String &string, const usize from, const usize to) {
-//   return String(string.allocator, string.value + from, to - from);
-// }
-
-// static String substring (const String &string, const usize from) {
-//   return substring(string, from, string.length);
-// }
 
 static bool is_empty (const String_View &view) {
   if (view.value == nullptr && view.length == 0) return true;
@@ -188,17 +181,14 @@ constexpr bool ends_with (const String_View &view, const String_View &end) {
 }
 
 constexpr bool compare_strings (const String_View &left, const String_View &right) {
-  if (left.length == right.length) {
-    if (!left.value && !right.value) return true;
+  // Check for equal length first
+  if (left.length != right.length) return false;
 
-    for (usize idx = 0; idx < left.length; idx++) {
-      if (left[idx] != right[idx]) return false;
-    }
-    
-    return true;
-  }
+  // Handle case where both are null or empty
+  if (!left.value || !right.value) return left.value == right.value;
 
-  return false;
+  // Compare string contents
+  return compare_bytes<char>(left.value, right.value, left.length);
 }
 
 struct Format_String {

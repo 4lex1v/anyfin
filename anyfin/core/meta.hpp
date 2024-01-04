@@ -82,6 +82,9 @@ concept Unsigned_Integral = is_unsigned<I>;
 template <typename I>
 concept Integral = is_signed<I> || is_unsigned<I>;
 
+template <typename T>
+concept Numeric = Integral<T> || Same_Types<T, f32> || Same_Types<T, f64>;
+
 template <typename I, typename T>
 concept Iterator = requires (I iterator, const I &other) {
   { *iterator }         -> Convertible_To<T &>;

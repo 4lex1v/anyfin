@@ -46,6 +46,15 @@ struct Slice {
     return current;
   }
 
+  Slice<T>& operator += (usize offset) {
+    assert(offset < count);
+
+    this->elements += offset;
+    this->count    -= offset;
+
+    return *this;
+  }
+
   T * begin () { return elements; }
   T * end   () { return elements + count; }
 

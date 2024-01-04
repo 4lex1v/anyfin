@@ -13,7 +13,7 @@ struct Bit_Mask {
   constexpr Bit_Mask (Mask value): bit_mask { value } {}
   constexpr Bit_Mask (E value): bit_mask { static_cast<Mask>(value) } {}
   
-  constexpr Bit_Mask<E> operator | (E value) { return bit_mask | static_cast<Mask>(value); }
+  constexpr Bit_Mask<E> operator | (E value) const { return bit_mask | static_cast<Mask>(value); }
  
   constexpr bool operator & (E value) const { return bit_mask & static_cast<Mask>(value); }
 

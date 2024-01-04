@@ -8,6 +8,8 @@
 
 namespace Fin::Core {
 
+struct Memory_Arena;
+
 struct Allocation_Request {
   enum Type { Reserve, Grow, Free };
 
@@ -74,5 +76,21 @@ template <Allocator A> Scope_Allocator (Scope_Allocator<A>) -> Scope_Allocator<A
 
 template <Allocator A>
 static void destroy (Scope_Allocator<A> &);
+
+template <typename T>
+concept Destructible = requires (T &value, Callsite_Info info) {
+  { destroy(value, info) } -> Same_Types<void>;
+};
+
+/*
+  Optimization for cases when the allocator is a memory arena, in which case we don't need to call
+  the destructor on the library's side and it's up to the user. While the compile should be able to
+  optimize native destructor calls, in some cases when the allocator is hidden behind an Allocator_View
+  pointer, e.g strings, it won't know that free function is empty.
+ */
+template <Allocator A, Destructible T>
+static void smart_destroy (T &value, const Callsite_Info info = Callsite_Info()) {
+  if constexpr (!Same_Types<A, Memory_Arena>) destroy<T>(value, info);
+}
 
 }

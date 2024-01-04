@@ -77,10 +77,8 @@ struct List {
   }
 
   bool remove (const Invocable<bool, const T &> auto &pred) {
-    auto search_result = find_node(pred);
-    if (!search_result) return false;
-
-    auto node = *search_result;
+    auto [found, node] = find_node(pred);
+    if (!found) return false;
 
     if (node->previous != nullptr) node->previous->next = node->next;
     else                           this->first = node->next;

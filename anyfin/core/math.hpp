@@ -910,7 +910,8 @@ constexpr Vec4<T> vec4 (const T x, const T y, const T z, const T w) {
 /*   return result; */
 /* } */
 
-constexpr float clamp (float value, float min = 0.0f, float max = 1.0f) {
+template <Numeric N>
+constexpr N clamp (N value, N min = static_cast<N>(0), N max = static_cast<N>(1)) {
   return min > value ? min : (value < max ? value : max);
 }
 
