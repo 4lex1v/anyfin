@@ -30,23 +30,18 @@ constexpr bool is_aligned_by (const auto value, const usize by) {
 }
 
 template <typename T>
-static void copy_memory (T *destination, const T *source, const usize count) {
-  memcpy(destination, source, sizeof(T) * count);
-}
-
-static void zero_memory (auto *memory, const usize count) {
-  memset(memory, 0, sizeof(decltype(*memory)) * count);
+constexpr void copy_memory (T *destination, const T *source, const usize count) {
+  __builtin_memcpy(destination, source, sizeof(T) * count);
 }
 
 template <typename T>
-static bool compare_bytes (const T *a, const T *b, const usize count) {
-  auto value_a = reinterpret_cast<const u8 *>(a);
-  auto value_b = reinterpret_cast<const u8 *>(b);
+constexpr void zero_memory (T *memory, const usize count = 1) {
+  __builtin_memset(memory, 0, sizeof(T) * count);
+}
 
-  for (usize idx = 0; idx < (sizeof(T) * count); idx++)
-    if (value_a[idx] != value_b[idx]) return false;
-
-  return true;
+template <typename T>
+constexpr bool compare_bytes (const T *a, const T *b, const usize count) {
+  return (__builtin_memcmp(a, b, sizeof(T) * count) == 0);
 }
 
 static const char * get_character_offset_reversed (const char *memory, const char value, const usize length) {

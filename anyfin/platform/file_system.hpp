@@ -4,6 +4,7 @@
 #include "anyfin/base.hpp"
 
 #include "anyfin/core/bit_mask.hpp"
+#include "anyfin/core/memory.hpp"
 #include "anyfin/core/meta.hpp"
 #include "anyfin/core/strings.hpp"
 #include "anyfin/core/slice.hpp"
@@ -27,17 +28,25 @@ using File_Path_View = Core::String_View;
 
   Path separator is platform-dependent, i.e for Windows it's \, while for Unix systems - /.
  */
-static File_Path make_file_path (Core::Allocator auto &allocator, const Core::Iterable<Core::String_View> auto &segments) {
+template <Core::Iterable<Core::String_View> I>
+/*
+  To avoid compiler's confusion in cases like make_file_path(arena, "value"), since technically we can
+  iterate the string literal, we reject this specific declaration for such cases.
+ */
+requires (!Core::is_string_literal<I>)
+static File_Path make_file_path (Core::Allocator auto &allocator, const I &segments) {
   usize reservation_size = 0;
   // Segments will be separated with a platform-dependent path separator and be null-terminated.
   for (auto &s: segments) if (s) reservation_size += s.length + 1; 
 
-  auto buffer = reinterpret_cast<char *>(reserve_memory(allocator, reservation_size));
+  static_assert(Core::is_string_literal<char[8]>);
+
+  auto buffer = reserve_memory(allocator, reservation_size);
   if (!buffer) Core::trap("Provided allocator is out of available memory");
 
   auto cursor = buffer;
   for (auto &segment: segments) {
-    memcpy(cursor, segment.value, segment.length);
+    Core::copy_memory(cursor, segment.value, segment.length);
     cursor[segment.length] = get_path_separator();
     cursor += segment.length + 1;
   }
@@ -68,13 +77,13 @@ enum struct File_System_Flags: u64 {
 /*
   Create a resource of a specified type on the file system under the specified path.
  */
-static Result<void> create_resource (const File_Path &path, Resource_Type resource_type, Core::Bit_Mask<File_System_Flags> flags = {});
+static Result<void> create_resource (File_Path_View path, Resource_Type resource_type, Core::Bit_Mask<File_System_Flags> flags = {});
 
-static Result<void> create_file (const File_Path &path, Core::Bit_Mask<File_System_Flags> flags = {}) {
+static Result<void> create_file (File_Path_View path, Core::Bit_Mask<File_System_Flags> flags = {}) {
   return create_resource(path, Resource_Type::File, flags);
 }
 
-static Result<void> create_directory (const File_Path &path, Core::Bit_Mask<File_System_Flags> flags = {}) {
+static Result<void> create_directory (File_Path_View path, Core::Bit_Mask<File_System_Flags> flags = {}) {
   return create_resource(path, Resource_Type::Directory, flags);
 }
 
@@ -82,19 +91,19 @@ static Result<void> create_directory (const File_Path &path, Core::Bit_Mask<File
   Check if the file pointed by the provided path exists on the file system.
   Returns true or false if the resource exists of not.
  */
-static Result<bool> check_resource_exists (const File_Path &path, Resource_Type resource_type);
+static Result<bool> check_resource_exists (File_Path_View path, Resource_Type resource_type) ;
 
 /*
   Check if the provided path corresponds to an existing file on the file system.
  */
-static Result<bool> check_file_exists (const File_Path &path) {
+static Result<bool> check_file_exists (File_Path_View path) {
   return check_resource_exists(path, Resource_Type::File);
 }
 
 /*
   Check if the provided path corresponds to an existing directory on the file system.
  */
-static Result<bool> check_directory_exists (const File_Path &path) {
+static Result<bool> check_directory_exists (File_Path_View path) {
   return check_resource_exists(path, Resource_Type::Directory);
 }
 
@@ -104,19 +113,19 @@ static Result<bool> check_directory_exists (const File_Path &path) {
   If the resource does exist, attempt to delete it.
   If the resource is a directory that has content, it will be recursively deleted.
  */
-static Result<void> delete_resource (const File_Path &path, Resource_Type resource_type);
+static Result<void> delete_resource (File_Path_View path, Resource_Type resource_type) ;
 
 /*
   Attempts to remove a file from the file system that corresponds to the given path.
  */
-static Result<void> delete_file (const File_Path &path) {
+static Result<void> delete_file (File_Path_View path) {
   return delete_resource(path, Resource_Type::File);
 }
 
 /*
   Attempts to remove a directory with all its content from the file system.
  */
-static Result<void> delete_directory (const File_Path &path) {
+static Result<void> delete_directory (File_Path_View path) {
   return delete_resource(path, Resource_Type::Directory);
 }
 
@@ -125,39 +134,39 @@ static Result<void> delete_directory (const File_Path &path) {
   resource exists on the file system or not. If it's a file and has an extension, the extension
   would be included.
  */
-static Result<Core::Option<Core::String>> get_resource_name (Core::Allocator auto &allocator, const File_Path &path);
+static Result<Core::Option<Core::String>> get_resource_name (Core::Allocator auto &allocator, File_Path_View path) ;
 
-static Result<File_Path> get_absolute_path (Core::Allocator auto &allocator, const File_Path &path);
+static Result<File_Path> get_absolute_path (Core::Allocator auto &allocator, File_Path_View path) ;
 
-static Result<Core::Option<File_Path>> get_parent_folder_path (Core::Allocator auto &allocator, const File_Path &file);
+static Result<Core::Option<File_Path>> get_parent_folder_path (Core::Allocator auto &allocator, File_Path_View file) ;
 
-static Result<File_Path> get_working_directory (Core::Allocator auto &allocator);
+static Result<File_Path> get_working_directory (Core::Allocator auto &allocator) ;
 
-static Result<void> set_working_directory (const File_Path &path);
+static Result<void> set_working_directory (File_Path_View path) ;
 
-static Result<Core::List<File_Path>> list_files (Core::Allocator auto &allocator, const File_Path &directory, Core::String_View extension = {}, bool recursive = false);
+static Result<Core::List<File_Path>> list_files (Core::Allocator auto &allocator, File_Path_View directory, Core::String_View extension = {}, bool recursive = false) ;
 
-static Result<void> copy_directory (const File_Path &from, const File_Path &to);
+static Result<void> copy_directory (File_Path_View from, File_Path_View to) ;
 
 struct File {
   void *handle;
   File_Path path;
 };
 
-static Result<File> open_file (File_Path &&path, Core::Bit_Mask<File_System_Flags> flags = {});
+static Result<File> open_file (File_Path &&path, Core::Bit_Mask<File_System_Flags> flags = {}) ;
 
-static Result<void> close_file (File &file);
+static Result<void> close_file (File &file) ;
 
-static Result<u64> get_file_size (const File &file); 
+static Result<u64> get_file_size (const File &file) ; 
 
 // TODO: Fix this. On Windows the unique id is at least 128 bytes?
-static Result<u64> get_file_id (const File &file);
+static Result<u64> get_file_id (const File &file) ;
 
-static Result<void> write_buffer_to_file (File &file, const Core::Slice<const u8> &bytes);
+static Result<void> write_buffer_to_file (File &file, Core::String_View bytes) ;
 
-static Result<void> reset_file_cursor (File &file);
+static Result<void> reset_file_cursor (File &file) ;
 
-static Result<u64> get_last_update_timestamp (const File &file);
+static Result<u64> get_last_update_timestamp (const File &file) ;
 
 struct File_Mapping {
   void *handle;
@@ -166,9 +175,9 @@ struct File_Mapping {
   usize size;
 };
 
-static Result<File_Mapping> map_file_into_memory (const File &file);
+static Result<File_Mapping> map_file_into_memory (const File &file) ;
 
-static Result<void> unmap_file (File_Mapping &mapping);
+static Result<void> unmap_file (File_Mapping &mapping) ;
 
 }
 

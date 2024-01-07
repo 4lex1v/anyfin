@@ -86,15 +86,23 @@ struct Result {
   constexpr bool is_error (this auto &self) { return self.tag.value == Tag::Error; }
   constexpr bool is_ok    (this auto &self) { return self.tag.value == Tag::Success; }
 
-  Value_Type & get (Core::String_View trap_message = "Attempt to access value on a failed result container") {
-    if (this->tag.value != Tag::Success) [[unlikely]] trap(trap_message);
+  Value_Type & get (const Invocable<void, const Status_Type &> auto &func) {
+    if (this->tag.value != Tag::Success) [[unlikely]] func(this->status);
     return this->value;
   }
 
-  Value_Type && take (Core::String_View trap_message = "Attempt to move a value from a failed result container") {
-    if (this->tag.value != Tag::Success) [[unlikely]] trap(trap_message);
+  Value_Type & get (String_View trap_message = "Attempt to access value of a failed result\n") {
+    return get([trap_message] (auto &) { trap(trap_message); });
+  }
+
+  Value_Type && take (const Invocable<void, const Status_Type &> auto &func) {
+    if (this->tag.value != Tag::Success) [[unlikely]] func(this->status);
     this->tag = Tag::Empty;
     return move(this->value);
+  }
+
+  Value_Type && take (String_View trap_message = "Attempt to access value of a failed result\n") {
+    return take([trap_message] (auto &) { trap(trap_message); });
   }
 
   Value_Type&& operator * () && {

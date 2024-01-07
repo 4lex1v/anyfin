@@ -166,4 +166,13 @@ constexpr bool is_empty (const List<T> &list) {
   return list.first == nullptr;
 }
 
+namespace iterator {
+
+template <typename T>
+constexpr usize count (const List<T> &list) {
+  return list.count;
+}
+
+}
+
 } // namespace Fin::Core

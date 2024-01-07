@@ -18,7 +18,7 @@ constexpr Core::String_View get_shared_library_extension() { return "dll"; }
 constexpr Core::String_View get_executable_extension()     { return "exe"; }
 constexpr Core::String_View get_object_extension()         { return "obj"; }
 
-static Result<void> create_resource (const File_Path &path, const Resource_Type resource_type, const Core::Bit_Mask<File_System_Flags> flags) {
+static Result<void> create_resource (File_Path_View path, const Resource_Type resource_type, const Core::Bit_Mask<File_System_Flags> flags) {
   switch (resource_type) {
     case Resource_Type::File: {
       using enum File_System_Flags;
@@ -40,7 +40,7 @@ static Result<void> create_resource (const File_Path &path, const Resource_Type 
   }
 }
 
-static Result<bool> check_resource_exists (const File_Path &path, Resource_Type resource_type) {
+static Result<bool> check_resource_exists (File_Path_View path, Resource_Type resource_type) {
   const DWORD attributes = GetFileAttributes(path.value);
   if (attributes == INVALID_FILE_ATTRIBUTES) return Core::Error(get_system_error());
 
@@ -50,40 +50,7 @@ static Result<bool> check_resource_exists (const File_Path &path, Resource_Type 
   }
 }
 
-static Result<void> delete_directory_recursive (Core::Memory_Arena &allocator, const File_Path &path) {
-  auto directory_search_query = format_string(allocator, "%\\*", path);
-  
-  WIN32_FIND_DATA data;
-  auto search_handle = FindFirstFile(directory_search_query, &data);
-  if (search_handle == INVALID_HANDLE_VALUE) return Core::Error(get_system_error());
-  defer { FindClose(search_handle); };
-
-  do {
-    auto local = allocator;
-
-    if (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-      if ((compare_strings(Core::String_View(data.cFileName), ".") != 0) &&
-          (compare_strings(Core::String_View(data.cFileName), "..") != 0)) {
-        auto subpath = format_string(local, "%\\%", path, Core::String_View(data.cFileName));
-
-        auto result = delete_directory_recursive(local, subpath);
-        if (!result) return result;
-      }
-    }
-    else {
-      auto subpath = format_string(local, "%\\%", path, Core::String_View(data.cFileName));
-
-      auto result = delete_file(subpath);
-      if (!result) return result;
-    }
-  } while (FindNextFile(search_handle, &data));
-
-  if (!RemoveDirectory(path.value)) return Core::Error(get_system_error());
-
-  return Core::Ok();
-}
-
-static Result<void> delete_resource (const File_Path &path, Resource_Type resource_type) {
+static Result<void> delete_resource (File_Path_View path, Resource_Type resource_type) {
   switch (resource_type) {
     case Resource_Type::File: {
       if (!DeleteFile(path.value)) {
@@ -100,7 +67,34 @@ static Result<void> delete_resource (const File_Path &path, Resource_Type resour
       if (error_code == ERROR_FILE_NOT_FOUND) return Core::Ok();
       if (error_code == ERROR_DIR_NOT_EMPTY)  {
         Core::Local_Arena<2048> arena;
-        return delete_directory_recursive(arena, path); 
+
+        auto delete_recursive = [] (this auto self, Core::Memory_Arena &allocator, File_Path_View path) -> Result<void> {
+          auto directory_search_query = format_string(allocator, "%\\*", path);
+  
+          WIN32_FIND_DATA data;
+          auto search_handle = FindFirstFile(directory_search_query, &data);
+          if (search_handle == INVALID_HANDLE_VALUE) return Core::Error(get_system_error());
+          defer { FindClose(search_handle); };
+
+          do {
+            auto local = allocator;
+
+            auto file_name = Core::String_View(data.cFileName);
+            auto sub_path  = format_string(local, "%\\%", path, file_name);
+
+            if (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+              if (Core::compare_strings(file_name, ".") || Core::compare_strings(file_name, "..")) continue;
+              fin_check(self(local, sub_path));
+            }
+            else fin_check(delete_file(sub_path));
+          } while (FindNextFile(search_handle, &data));
+
+          if (!RemoveDirectory(path.value)) return Core::Error(get_system_error());
+
+          return Core::Ok();
+        };
+
+        return delete_recursive(arena, path); 
       }
 
       return get_system_error();
@@ -108,7 +102,7 @@ static Result<void> delete_resource (const File_Path &path, Resource_Type resour
   }
 }
 
-static Result<Core::Option<Core::String>> get_resource_name (Core::Allocator auto &allocator, const File_Path &path) {
+static Result<Core::Option<Core::String>> get_resource_name (Core::Allocator auto &allocator, File_Path_View path) {
   char buffer[MAX_PATH];
 
   char *file_name_offset = nullptr;
@@ -123,7 +117,7 @@ static Result<Core::Option<Core::String>> get_resource_name (Core::Allocator aut
   Core::trap("Unimplemented");
 }
 
-static Result<File_Path> get_absolute_path (Core::Allocator auto &allocator, const File_Path &path) {
+static Result<File_Path> get_absolute_path (Core::Allocator auto &allocator, File_Path_View path) {
   auto full_path_name_length = GetFullPathNameA(path, 0, nullptr, nullptr);
 
   auto buffer = reinterpret_cast<char *>(reserve_memory(allocator, full_path_name_length, alignof(char)));
@@ -136,7 +130,7 @@ static Result<File_Path> get_absolute_path (Core::Allocator auto &allocator, con
   return Core::Ok(File_Path(allocator, buffer, full_path_name_length));
 }
 
-static Result<Core::Option<File_Path>> get_parent_folder_path (Core::Allocator auto &allocator, const File_Path &_path) {
+static Result<Core::Option<File_Path>> get_parent_folder_path (Core::Allocator auto &allocator, File_Path_View _path) {
   auto [tag, error, path] = get_absolute_path(allocator, _path);
   if (!tag) return Core::move(error);
 
@@ -161,11 +155,16 @@ static Result<File_Path> get_working_directory (Core::Allocator auto &allocator)
   return File_Path(allocator, buffer, path_length);
 }
 
-static Result<Core::List<File_Path>> list_files (Core::Allocator auto &allocator, const File_Path &directory, Core::String_View extension, bool recursive) {
+static Result<void> set_working_directory (File_Path_View path) {
+  if (!SetCurrentDirectory(path.value)) return get_system_error();
+  return Core::Ok();
+}
+
+static Result<Core::List<File_Path>> list_files (Core::Allocator auto &allocator, File_Path_View directory, Core::String_View extension, bool recursive) {
   Core::List<File_Path>   file_list { allocator };
   Core::Local_Arena<2048> arena;
 
-  auto list_recursive = [extension, recursive, &file_list] (this auto self, Core::Memory_Arena &arena, const File_Path &directory) -> Result<void> {
+  auto list_recursive = [extension, recursive, &file_list] (this auto self, Core::Memory_Arena &arena, File_Path_View directory) -> Result<void> {
     WIN32_FIND_DATAA data;
 
     auto query = format_string(arena, "%\\*", directory);
@@ -206,10 +205,10 @@ static Result<Core::List<File_Path>> list_files (Core::Allocator auto &allocator
   return Core::Ok(file_list);
 }
 
-static Result<void> copy_directory (const File_Path &from, const File_Path &to) {
+static Result<void> copy_directory (File_Path_View from, File_Path_View to) {
   Core::Local_Arena<2048> arena;
 
-  auto copy_recursive = [] (this auto self, Core::Memory_Arena &arena, const File_Path &from, const File_Path &to) -> Result<void> {
+  auto copy_recursive = [] (this auto self, Core::Memory_Arena &arena, File_Path_View from, File_Path_View to) -> Result<void> {
     WIN32_FIND_DATA find_file_data;
 
     auto search_query = format_string(arena, "%\\*", from);
@@ -279,12 +278,12 @@ static Result<u64> get_file_id (const File &file) {
   return Core::Ok(*reinterpret_cast<u64 *>(id_info.FileId.Identifier));
 }
 
-static Result<void> write_buffer_to_file (File &file, const Core::Slice<const u8> &bytes) {
+static Result<void> write_buffer_to_file (File &file, Core::String_View bytes) {
   DWORD total_bytes_written = 0;
-  while (total_bytes_written < bytes.count) {
+  while (total_bytes_written < bytes.length) {
     DWORD bytes_written = 0;
-    if (!WriteFile(file.handle, bytes.elements + total_bytes_written, 
-                   bytes.count - total_bytes_written, &bytes_written, nullptr)) {
+    if (!WriteFile(file.handle, bytes.value + total_bytes_written, 
+                   bytes.length - total_bytes_written, &bytes_written, nullptr)) {
       return get_system_error();
     }
 

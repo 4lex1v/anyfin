@@ -114,8 +114,9 @@ template <> void destroy (Scope_Allocator<Memory_Arena> &allocator) {
   
 }
 
-static u8 * allocator_dispatch (Scope_Allocator<Memory_Arena> &allocator, const Allocation_Request request) {
-  return allocator_dispatch(allocator.arena, request);
+fin_forceinline
+static u8 * allocator_dispatch (Scope_Allocator<Memory_Arena> &allocator, Allocation_Request request) {
+  return allocator_dispatch(allocator.arena, move(request));
 }
 
 inline Scope_Allocator<Memory_Arena>::operator Allocator_View () {

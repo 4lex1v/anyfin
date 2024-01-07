@@ -12,59 +12,52 @@ struct Slice {
   T *elements = nullptr;
   usize count = 0;
 
-  Slice () = default;
+  constexpr Slice () = default;
 
   template <usize N>
-  Slice (T (&data)[N]): Slice(data, N) {}
+  constexpr Slice (T (&data)[N])
+    : Slice(data, N) {}
   
-  Slice (T *_elements, usize _count)
-    : elements { _elements },
-      count { _count }
-  {}
+  constexpr Slice (T *_elements, usize _count)
+    : elements { _elements }, count { _count } {}
 
-  constexpr operator bool () const { return !count; }
+  constexpr operator bool (this auto self) { return self.elements && self.count; }
 
-  T &       operator [] (usize offset)       { return elements[offset]; }
-  T const & operator [] (usize offset) const { return elements[offset]; }
+  constexpr decltype(auto) operator [] (this auto &&self, usize offset) { return self.elements[offset]; }
+  constexpr decltype(auto) operator *  (this auto &&self)               { return *self.elements; }
 
-  Slice<T> operator + (usize offset) const {
-    assert(offset < count);
-    return Slice(this->elements + offset, this->count - offset);
+  constexpr Slice<T> operator + (this auto self, usize offset) {
+    assert(offset < self.count);
+    return Slice(self.elements + offset, self.count - offset);
   }
 
-  T &       operator * ()       { return *elements; }
-  T const & operator * () const { return *elements; }
+  constexpr Slice<T>& operator += (this Slice<T> &self, usize offset) {
+    assert(offset < self.count);
 
-  Slice<T> operator ++ (int) {
-    assert(count > 0);
+    self.elements += offset;
+    self.count    -= offset;
 
-    auto current = *this;
-
-    elements += 1;
-    count    -= 1;
-
-    return current;
+    return self;
   }
 
-  Slice<T>& operator += (usize offset) {
-    assert(offset < count);
+  constexpr Slice<T> operator ++ (this Slice<T> &self, int) { return (self += 1); }
 
-    this->elements += offset;
-    this->count    -= offset;
-
-    return *this;
-  }
-
-  T * begin () { return elements; }
-  T * end   () { return elements + count; }
-
-  T const * begin () const { return elements; }
-  T const * end   () const { return elements + count; }
+  constexpr decltype(auto) begin (this auto self) { return self.elements; }
+  constexpr decltype(auto) end   (this auto self) { return self.elements; }
 };
 
 template <typename T>
-static inline bool is_empty (const Slice<T> &args) {
+constexpr bool is_empty (Slice<T> args) {
   return args.count == 0;
+}
+
+namespace iterator {
+
+template <typename T>
+constexpr usize count (const Slice<T> &slice) {
+  return slice.count;
+}
+
 }
 
 }

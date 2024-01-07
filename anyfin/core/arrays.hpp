@@ -21,19 +21,17 @@ struct Array {
     : allocator { _allocator }, values { _values }, count { _count }
   {}
 
-  constexpr T &       operator [] (usize offset)       { return values[offset]; }
-  constexpr T const & operator [] (usize offset) const { return values[offset]; }
-
-  Slice<T> operator + (usize offset) const {
-    assert(offset <= this->count);
-    return Slice(this->values + offset, this->count - offset);
+  constexpr decltype(auto) operator [] (this auto &&self, usize offset) {
+    return self.values[offset];
   }
 
-  T *       begin ()       { return this->values; }
-  T const * begin () const { return this->values; }
+  constexpr Slice<T> operator + (this auto &self, usize offset) {
+    assert(offset <= self.count);
+    return Slice(self.values + offset, self.count - offset);
+  }
 
-  T *       end ()       { return this->values + this->count; }
-  T const * end () const { return this->values + this->count; }
+  constexpr decltype(auto) begin (this auto &&self) { return self.values; }
+  constexpr decltype(auto) end   (this auto &&self) { return self.values + self.count; }
 };
 
 template <typename T>
@@ -43,7 +41,8 @@ static Slice<T> slice (Array<T> &array) {
 }
 
 template <typename T>
-static void destroy (Array<T> &array) {
+static void destroy (Array<T> &array, Callsite_Info callsite = {}) {
+  for (auto &elem: array) smart_destroy(elem, callsite);
   free_memory(array.allocator, array.values);
 }
 

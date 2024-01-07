@@ -24,7 +24,7 @@ struct Option {
 
   constexpr Option (Value_Type &&_value)
     : has_value { true },
-      value { move(_value) }
+      value     { move(_value) }
   {}
 
   constexpr Option (Option<T> &&other)
@@ -73,6 +73,10 @@ struct Option {
   constexpr Value_Type && take (const char *message = "Attempt to deference an empty Option value") {
     if (is_none()) [[unlikely]] trap(message);
     return move(this->value); 
+  }
+
+  constexpr Value_Type && or_default () {
+    return move(is_some() ? this->value : Value_Type {});
   }
 
   constexpr void handle_value (const Invocable<void, const T &> auto &closure) const {

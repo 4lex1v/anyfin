@@ -3,6 +3,7 @@
 
 #include "anyfin/core/arrays.hpp"
 #include "anyfin/core/strings.hpp"
+#include "anyfin/core/option.hpp"
 
 namespace Fin::Platform {
 
@@ -21,6 +22,15 @@ struct Startup_Argument {
   constexpr bool is_pair  () const { return type == Type::Pair; }
   constexpr bool is_value () const { return type == Type::Value; }
 };
+
+constexpr Core::Option<Core::String_View> get_value (const Core::Iterable<Startup_Argument> auto &args, Core::String_View key_name) {
+  for (auto &arg: args) {
+    if (arg.is_value()) continue;
+    if (compare_strings(arg.key, key_name)) return Core::String_View(arg.value);
+  }
+
+  return Core::opt_none;
+}
 
 static Core::Array<Startup_Argument> get_startup_args (Core::Allocator auto &allocator);
 

@@ -4,6 +4,7 @@
 #include "anyfin/base.hpp"
 
 #include "anyfin/core/allocator.hpp"
+#include "anyfin/core/arena.hpp"
 #include "anyfin/core/assert.hpp"
 #include "anyfin/core/memory.hpp"
 #include "anyfin/core/meta.hpp"
@@ -29,45 +30,66 @@ constexpr usize get_string_length (const char *value) {
   return length;
 }
 
+constexpr const char * string_adapt (Byte_Type auto *values) {
+  using T = raw_type<decltype(values)>;
+  auto consted = const_cast<const T *>(values);
+
+  struct Cast_Workaround {
+    union {
+      const char *as_char;
+      const u8   *as_uchar;
+    };
+
+    constexpr Cast_Workaround (const u8 *_uchar): as_uchar { _uchar } {}
+    constexpr Cast_Workaround (const char *_char): as_char { _char } {}
+  };
+
+  Cast_Workaround cast { consted };
+  return cast.as_char;
+}
+
 struct String_View {
   const char *value;
   usize       length;
 
   constexpr String_View (): value { nullptr }, length { 0 } {}
 
+  constexpr String_View (const String_View &other)
+    : value { other.value }, length { other.length } {}
+
   template <usize N>
-  constexpr String_View (const char (&literal)[N])
-    : value { literal }, length { N - 1 } {}
+  constexpr String_View (Byte_Array<N> auto (&literal)[N])
+    : value { string_adapt(literal) }, length { N - 1 } {}
 
-  constexpr String_View (const char *_value, usize _length)
-    : value { _value }, length { _length } {}
+  constexpr String_View (Byte_Pointer auto _value, usize _length)
+    : value { string_adapt(_value) }, length { _length } {}
 
-  constexpr String_View (const String_View &view) = default;
-  constexpr String_View (String_View &&view)      = default;
-
-  constexpr explicit String_View (const char *_value)
-    : value  { _value }, length { get_string_length(_value) } {}
+  constexpr String_View (Byte_Pointer auto _value) {
+    this->value  = string_adapt(_value);
+    this->length = get_string_length(this->value);
+  }
 
   constexpr String_View (const String &string);
 
-  constexpr String_View& operator = (const String_View &other) {
+  constexpr String_View& operator = (String_View other) {
     this->value  = other.value;
     this->length = other.length;
     
     return *this;
   }
 
-  constexpr operator         bool () const { return this->value != nullptr && this->length != 0; }
-  constexpr operator const char * () const { return this->value; }
+  constexpr operator bool         (this auto self) { return self.value && self.length; }
+  constexpr operator const char * (this auto self) { return self.value; }
   
-  char operator [] (usize idx) const { return value[idx]; }
+  constexpr auto operator [] (this auto self, usize idx) { return self.value[idx]; }
 
-  String_View operator + (int offset)   const { return String_View(this->value + offset, this->length - offset); }
-  String_View operator + (u32 offset)   const { return String_View(this->value + offset, this->length - offset); }
-  String_View operator + (usize offset) const { return String_View(this->value + offset, this->length - offset); }
+  constexpr auto operator + (this auto self, Integral auto offset) {
+    assert(offset <= self.length);
+    return String_View(self.value + offset, self.length - offset);
+  }
 
-  const char * begin () const { return value; }
-  const char * end   () const { return value + length; }
+  constexpr const char * begin (this auto self) { return self.value; }
+  constexpr const char * end   (this auto self) { return self.value + self.length; }
 };
 
 static_assert(sizeof(String_View) == 16);
@@ -80,8 +102,12 @@ struct String {
 
   constexpr String () = default;
 
-  constexpr String (Allocator auto &_allocator, const char *_value, const usize _length)
-    : allocator { _allocator }, value { _value }, length { _length } {}
+  template <usize N>
+  constexpr String (Allocator auto &_allocator, Byte_Array<N> auto (&array)[N])
+    : allocator { _allocator }, value { string_adapt(array) }, length { N - 1 } {}
+
+  constexpr String (Allocator auto &_allocator, Byte_Pointer auto _value, const usize _length)
+    : allocator { _allocator }, value { string_adapt(_value) }, length { _length } {}
 
   constexpr String (String &&other)
     : allocator { move(other.allocator) },
@@ -114,41 +140,37 @@ struct String {
   constexpr operator bool         () const { return this->length > 0; }
   constexpr operator const char * () const { return this->value; }
 
-  constexpr char operator [] (usize idx) const { return value[idx]; }
+  constexpr auto operator [] (this auto &&self, usize idx) { return self.value[idx]; }
 
-  static String copy (Allocator auto &allocator, const String &string) {
-    String new_string {};
-    if (is_empty(string)) return new_string;
-    copy_string(allocator, new_string, string);
-    return new_string;
-  }
+  static String copy (Allocator auto &allocator, String_View view, Callsite_Info callsite = {}) {
+    if (is_empty(view)) return {};
 
-  static String copy (Allocator auto &allocator, const String_View &view) {
-    String new_string {};
-
-    if (is_empty(view)) return new_string;
-
+    String new_string;
     copy_string(allocator, new_string, view);
 
     return new_string;
   }
 
-  static String copy (Allocator auto &allocator, const char *value, const usize length) {
-    return copy(allocator, String_View(value, length));
+  static String copy (Allocator auto &allocator, const String &string, Callsite_Info callsite = {}) {
+    return copy(allocator, string, callsite);
   }
   
-  static String copy (Allocator auto &allocator, const char *value) {
-    return copy(allocator, String_View(value));
+  static String copy (Allocator auto &allocator, const char *value, const usize length, Callsite_Info callsite = {}) {
+    return copy(allocator, String_View(value, length), callsite);
+  }
+  
+  static String copy (Allocator auto &allocator, const char *value, Callsite_Info callsite = {}) {
+    return copy(allocator, String_View(value), callsite);
   }
 
   const char * begin () const { return value; }
   const char * end   () const { return value + length; }
 
 private:
-  static void copy_string (Allocator auto &allocator, String &dest, const String_View &source) {
-    auto buffer = reserve_memory(allocator, source.length + 1, alignof(char));
+  static void copy_string (Allocator auto &allocator, String &dest, String_View source, Callsite_Info callsite = {}) {
+    auto buffer = reserve_memory(allocator, source.length + 1, alignof(char), callsite);
 
-    memcpy(buffer, source.value, source.length);
+    copy_memory(buffer, source.value, source.length);
     buffer[source.length] = '\0';
 
     dest.value  = reinterpret_cast<char *>(buffer);
@@ -156,19 +178,33 @@ private:
   }
 };
 
+constexpr String_View::String_View (const String &string)
+  : value { string.value }, length { string.length } {}
+
 static void destroy (String &string, const Callsite_Info info = Callsite_Info()) {
   free_reservation(string.allocator, (void*)string.value, info);
 }
 
-constexpr String_View::String_View (const String &string)
-  : value { string.value }, length { string.length } {}
+constexpr String copy (const String &string, const Callsite_Info callsite = {}) {
+  return String::copy(string.allocator, string, callsite);
+}
 
-static bool is_empty (const String_View &view) {
+constexpr bool is_empty (String_View view) {
   if (view.value == nullptr && view.length == 0) return true;
   return false;
 }
 
-constexpr bool ends_with (const String_View &view, const String_View &end) {
+constexpr bool starts_with (String_View view, String_View start) {
+  if (start.length > view.length) return false;
+
+  for (size_t i = 0; i < start.length; ++i) {
+    if (view.value[i] != start.value[i]) return false;
+  }
+
+  return true;
+}
+
+constexpr bool ends_with (String_View view, String_View end) {
   if (end.length > view.length) return false;
 
   for (size_t i = 0; i < end.length; ++i) {
@@ -180,7 +216,18 @@ constexpr bool ends_with (const String_View &view, const String_View &end) {
   return true; 
 }
 
-constexpr bool compare_strings (const String_View &left, const String_View &right) {
+constexpr bool has_substring (String_View text, String_View value) {
+  if (value.length == 0)          return true;
+  if (text.length < value.length) return false;
+
+  for (size_t i = 0; i <= text.length - value.length; i++) {
+    if (compare_bytes(text.value + i, value.value, value.length)) return true;
+  }
+
+  return false;
+}
+
+constexpr bool compare_strings (String_View left, String_View right) {
   // Check for equal length first
   if (left.length != right.length) return false;
 
@@ -293,8 +340,7 @@ static String format_string (Alloc_Type &allocator, const Format_String &format,
   auto render_value = [&local] (const auto &value) -> String_View {
     if constexpr (is_convertible<decltype(value), String_View>)
       return static_cast<String_View>(value);
-
-    return to_string(value, local);
+    else return to_string(value, local);
   };
 
   String_View arguments[N] { render_value(args)... };
@@ -302,7 +348,13 @@ static String format_string (Alloc_Type &allocator, const Format_String &format,
   usize reservation_size = format.reservation_size + 1;
   for (auto &a: arguments) reservation_size += a.length;
 
-  char buffer[reservation_size];
+  /*
+    TODO: I'm planning to rewrite this whole formatter thing to avoid dynamic arrays, for now going to stub
+    whatever is sufficient here to do the job.
+   */
+  // char buffer[reservation_size];
+  Local_Arena<2048> arena;
+  char *buffer = reserve_memory(arena, 2048);
 
   usize cursor    = 0;
   usize arg_index = 0;
@@ -313,7 +365,7 @@ static String format_string (Alloc_Type &allocator, const Format_String &format,
       case Format_String::Segment::Type::Text: {
         auto length = segment.end - segment.start;
 
-        memcpy(buffer + cursor, format.format_string + segment.start, length);
+        copy_memory(buffer + cursor, format.format_string + segment.start, length);
         cursor += length;
         
         break;
@@ -322,7 +374,7 @@ static String format_string (Alloc_Type &allocator, const Format_String &format,
         assert(arg_index < N);
         auto entry = arguments + arg_index;
 
-        memcpy(buffer + cursor, entry->value, entry->length);
+        copy_memory(buffer + cursor, entry->value, entry->length);
         cursor += entry->length;
 
         arg_index += 1;
@@ -335,7 +387,9 @@ static String format_string (Alloc_Type &allocator, const Format_String &format,
   buffer[reservation_size - 1] = '\0';
 
   auto string = reserve_memory(allocator, reservation_size, alignof(char));
-  memcpy(string, buffer, reservation_size);
+  if (is_empty(string)) trap("Out of memory");
+
+  copy_memory(string, buffer, reservation_size);
 
   return String(allocator, reinterpret_cast<char *>(string), reservation_size - 1);
 }
@@ -350,14 +404,13 @@ static auto to_string (const char value, Allocator auto &allocator) {
   return String(allocator, reinterpret_cast<char *>(memory), 1);
 }
 
+static auto to_string (Byte_Pointer auto value, Allocator auto &allocator, Callsite_Info callsite = {}) {
+  return String::copy(allocator, value, callsite);
+}
+
 template <usize N>
-static auto to_string (const char (&value)[N], Allocator auto &allocator) {
-  auto buffer = reinterpret_cast<char *>(reserve_memory(allocator, N, alignof(char)));
-  if (!buffer) trap("Out of memory");
-
-  buffer[N] = '\0';
-
-  return String(allocator, buffer, N - 1);
+static auto to_string (Byte_Array<N> auto (&value)[N], Allocator auto &allocator) {
+  return String::copy(allocator, value, N - 1);
 }
 
 template <Integral I>
@@ -366,7 +419,7 @@ static auto to_string (I value, Allocator auto &allocator) {
   usize offset;
   
   bool is_negative = false;
-  if constexpr (is_signed<I>) {
+  if constexpr (Signed_Integral<I>) {
     is_negative = value < 0;
     value       = -value; 
   }
@@ -377,11 +430,11 @@ static auto to_string (I value, Allocator auto &allocator) {
     value /= 10;
   } while (value != 0);
 
-  if constexpr (is_signed<I>) {
+  if constexpr (Signed_Integral<I>) {
     if (is_negative) buffer[offset++] = '-';
   }
 
-  auto string = reinterpret_cast<char *>(reserve_memory(allocator, offset + 1));
+  auto string = reserve_memory<char>(allocator, offset + 1);
   for (usize idx = offset; idx > 0; idx--) {
     string[offset - idx] = buffer[idx];
   }
