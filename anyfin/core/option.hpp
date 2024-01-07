@@ -5,6 +5,7 @@
 
 #include "anyfin/core/meta.hpp"
 #include "anyfin/core/trap.hpp"
+#include "anyfin/core/callsite.hpp"
 
 namespace Fin::Core {
 
@@ -80,11 +81,9 @@ struct Option {
 };
 
 template <typename T>
-static void destroy (Option<T> &option) {
+static void destroy (Option<T> &option, Callsite_Info callsite = {}) {
   if (option) {
-    if constexpr (Destructible<T>) destroy(option.value);
-    else                           option.value.~T();
-
+    smart_destroy(option, callsite);
     option.has_value = false;
   }
 }

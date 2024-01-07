@@ -81,37 +81,20 @@ struct Result {
   constexpr Result (Ok<T>&& ok): tag { Tag::Success }, value { move(ok.value) } {}
   constexpr Result (Value_Type &&value): tag { Tag::Success }, value { move(value) } {}
 
-  constexpr ~Result () {
-    switch (tag.value) {
-      case Tag::Empty: { break; }
-      case Tag::Error: {
-        this->status.~Status_Type();
-        break;
-      }
-      case Tag::Success: {
-        this->value.~Value_Type();
-        break;
-      }
-    }
-  }
-
   constexpr operator bool () const { return tag.value == Tag::Success; }
 
-  Value_Type& get (const char *trap_message) {
+  constexpr bool is_error (this auto &self) { return self.tag.value == Tag::Error; }
+  constexpr bool is_ok    (this auto &self) { return self.tag.value == Tag::Success; }
+
+  Value_Type & get (Core::String_View trap_message = "Attempt to access value on a failed result container") {
     if (this->tag.value != Tag::Success) [[unlikely]] trap(trap_message);
     return this->value;
   }
 
-  Value_Type& get () { return get("Attempt to access value on a failed result container"); }
-
-  Value_Type&& take (const char *trap_message) {
+  Value_Type && take (Core::String_View trap_message = "Attempt to move a value from a failed result container") {
     if (this->tag.value != Tag::Success) [[unlikely]] trap(trap_message);
     this->tag = Tag::Empty;
     return move(this->value);
-  }
-
-  Value_Type&& take () {
-    return this->take("Attempt to move a value from a failed result container");
   }
 
   Value_Type&& operator * () && {
@@ -148,11 +131,28 @@ struct Result<S, void> {
 
   constexpr operator bool () const { return tag.value == Tag::Success; }
 
-  void expect (const String_View &message) { if (tag.value == Tag::Error) trap(message.value); }
-  void expect () { expect("Failed result value"); }
+  void expect (const String_View &message = "Failed result value") {
+    if (tag.value == Tag::Error) trap(message);
+  }
 };
 
-#define check(RESULT) do { if (auto result = (RESULT); !result) return result; } while (0)
+template <typename S, typename T>
+static void destroy (Result<S, T> &result, Callsite_Info callsite = {}) {
+  switch (result.tag.value) {
+    case Tag::Empty:   { break; }
+    case Tag::Error:   { smart_destroy(result.status, callsite); break; }
+    case Tag::Success: { smart_destroy(result.value); break; }
+  }
+}
+
+/*
+  
+ */
+#define fin_check(RESULT)                                           \
+  do {                                                              \
+    if (auto result = (RESULT); !result)                            \
+      return ::Fin::Core::Error(::Fin::Core::move(result.status));  \
+  } while (0)
 
 }
 

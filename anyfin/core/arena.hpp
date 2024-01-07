@@ -16,8 +16,6 @@ struct Memory_Arena {
   const usize size;
   usize offset;
 
-  Memory_Arena () = delete;
-
   Memory_Arena (u8 *_memory, const usize _size)
     : memory { _memory },
       size   { _size }
@@ -129,6 +127,21 @@ inline Scope_Allocator<Memory_Arena>::operator Allocator_View () {
   view.dispatch = reinterpret_cast<Allocator_View::Dispatch_Func>(dispatcher);
 
   return view;
+}
+
+template <usize Size>
+struct Local_Arena {
+  u8 reservation[Size];
+  Memory_Arena arena;
+
+  constexpr Local_Arena (): arena { reservation, Size } {}
+
+  operator Memory_Arena & () { return arena; }
+};
+
+template <usize Size>
+static u8 * allocator_dispatch (Local_Arena<Size> &allocator, const Allocation_Request request) {
+  return allocator_dispatch(allocator.arena, request);
 }
 
 }

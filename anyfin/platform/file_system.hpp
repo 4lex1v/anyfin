@@ -70,6 +70,14 @@ enum struct File_System_Flags: u64 {
  */
 static Result<void> create_resource (const File_Path &path, Resource_Type resource_type, Core::Bit_Mask<File_System_Flags> flags = {});
 
+static Result<void> create_file (const File_Path &path, Core::Bit_Mask<File_System_Flags> flags = {}) {
+  return create_resource(path, Resource_Type::File, flags);
+}
+
+static Result<void> create_directory (const File_Path &path, Core::Bit_Mask<File_System_Flags> flags = {}) {
+  return create_resource(path, Resource_Type::Directory, flags);
+}
+
 /*
   Check if the file pointed by the provided path exists on the file system.
   Returns true or false if the resource exists of not.
@@ -77,12 +85,40 @@ static Result<void> create_resource (const File_Path &path, Resource_Type resour
 static Result<bool> check_resource_exists (const File_Path &path, Resource_Type resource_type);
 
 /*
+  Check if the provided path corresponds to an existing file on the file system.
+ */
+static Result<bool> check_file_exists (const File_Path &path) {
+  return check_resource_exists(path, Resource_Type::File);
+}
+
+/*
+  Check if the provided path corresponds to an existing directory on the file system.
+ */
+static Result<bool> check_directory_exists (const File_Path &path) {
+  return check_resource_exists(path, Resource_Type::Directory);
+}
+
+/*
   Delete resource pointed by the path.
   If the resource doesn't exist, just returns to the caller.
   If the resource does exist, attempt to delete it.
   If the resource is a directory that has content, it will be recursively deleted.
  */
-static Result<void> delete_resource (Core::Allocator auto &allocator, const File_Path &path, Resource_Type resource_type);
+static Result<void> delete_resource (const File_Path &path, Resource_Type resource_type);
+
+/*
+  Attempts to remove a file from the file system that corresponds to the given path.
+ */
+static Result<void> delete_file (const File_Path &path) {
+  return delete_resource(path, Resource_Type::File);
+}
+
+/*
+  Attempts to remove a directory with all its content from the file system.
+ */
+static Result<void> delete_directory (const File_Path &path) {
+  return delete_resource(path, Resource_Type::Directory);
+}
 
 /*
   Extracts the resource (directory or file) name from the path, regardless if the actual
@@ -95,9 +131,13 @@ static Result<File_Path> get_absolute_path (Core::Allocator auto &allocator, con
 
 static Result<Core::Option<File_Path>> get_parent_folder_path (Core::Allocator auto &allocator, const File_Path &file);
 
-static Result<File_Path> get_working_directory_path (Core::Allocator auto &allocator);
+static Result<File_Path> get_working_directory (Core::Allocator auto &allocator);
 
-static Result<Core::List<File_Path>> list_files (Core::Allocator auto &allocator, const File_Path &directory, const Core::String_View &extension, bool recursive);
+static Result<void> set_working_directory (const File_Path &path);
+
+static Result<Core::List<File_Path>> list_files (Core::Allocator auto &allocator, const File_Path &directory, Core::String_View extension = {}, bool recursive = false);
+
+static Result<void> copy_directory (const File_Path &from, const File_Path &to);
 
 struct File {
   void *handle;

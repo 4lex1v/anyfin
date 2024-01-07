@@ -6,7 +6,7 @@
 
 namespace Fin::Core {
 
-static Crash_Handler crash_handler;
+static Crash_Handler crash_handler = terminate;
 
 static void set_crash_handler (Crash_Handler handler) {
   crash_handler = handler;

@@ -7,8 +7,6 @@
 
 namespace Fin::Core {
 
-struct String_View;
-
 template <typename T, typename... Args>
 constexpr const T & min (const T &first, const Args &... args) {
   const T &smallest = (first < ... < args);
