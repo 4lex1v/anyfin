@@ -43,12 +43,12 @@ static Slice<T> slice (Array<T> &array) {
 template <typename T>
 static void destroy (Array<T> &array, Callsite_Info callsite = {}) {
   for (auto &elem: array) smart_destroy(elem, callsite);
-  free_memory(array.allocator, array.values);
+  free(array.allocator, array.values);
 }
 
 template <typename T>
 static Array<T> reserve_array (Allocator auto &allocator, const usize count, const usize alignment = alignof(T), const Callsite_Info info = {}) {
-  auto reservation = reserve_memory<T>(allocator, count, alignment, info);
+  auto reservation = reserve<T>(allocator, count, alignment, info);
   return Array(allocator, reservation, count);
 }
 

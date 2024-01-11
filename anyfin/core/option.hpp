@@ -31,7 +31,7 @@ struct Option {
     : has_value { other.has_value },
       value     { move(other.value) }
   {
-    destroy(other);
+    other.has_value = false;
   }
 
   constexpr Option (const Option<T> &other)

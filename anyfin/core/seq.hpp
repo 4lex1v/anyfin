@@ -25,7 +25,7 @@ struct Seq {
     : allocator { _allocator },
       capacity  { initial_capacity }
   {
-    auto memory = reserve_memory(_allocator, initial_capacity * sizeof(T), alignof(T), callsite);
+    auto memory = reserve(_allocator, initial_capacity * sizeof(T), alignof(T), callsite);
     if (!memory) trap("Allocator has ran out of available memory");
 
     this->data = reinterpret_cast<T *>(memory);
@@ -38,7 +38,7 @@ struct Seq {
       this->data[idx].~Value_Type();
     }
 
-    free_memory(*this->allocator, this->data);
+    free(*this->allocator, this->data);
 
     this->data     = nullptr;
     this->count    = 0;
@@ -51,7 +51,7 @@ struct Seq {
   void grow_if_needed () {
     if (this->count == this->capacity) {
       auto new_capacity = this->capacity * 2;
-      auto new_memory = grow_reservation(this->allocator, this->data, new_capacity);
+      auto new_memory = grow(this->allocator, this->data, new_capacity);
       if (!new_memory) trap();
 
       this->data     = new_memory;

@@ -118,16 +118,16 @@ static Result<Core::Option<Core::String>> get_resource_name (Core::Allocator aut
 }
 
 static Result<File_Path> get_absolute_path (Core::Allocator auto &allocator, File_Path_View path) {
-  auto full_path_name_length = GetFullPathNameA(path, 0, nullptr, nullptr);
+  auto full_path_name_length = GetFullPathName(path, 0, nullptr, nullptr);
 
-  auto buffer = reinterpret_cast<char *>(reserve_memory(allocator, full_path_name_length, alignof(char)));
+  auto buffer = reserve(allocator, full_path_name_length, alignof(char));
 
-  if (!GetFullPathNameA(path, MAX_PATH, buffer, nullptr)) {
-    free_reservation(allocator, buffer);
+  if (!GetFullPathName(path, full_path_name_length, buffer, nullptr)) {
+    free(allocator, buffer);
     return Core::Error(get_system_error());
   }
 
-  return Core::Ok(File_Path(allocator, buffer, full_path_name_length));
+  return Core::Ok(File_Path(allocator, buffer, full_path_name_length - 1));
 }
 
 static Result<Core::Option<File_Path>> get_parent_folder_path (Core::Allocator auto &allocator, File_Path_View _path) {
@@ -147,7 +147,7 @@ static Result<File_Path> get_working_directory (Core::Allocator auto &allocator)
   auto buffer_size = GetCurrentDirectory(0, nullptr);
   if (buffer_size == 0) return Core::Error(get_system_error());
   
-  auto buffer = reserve_memory<char>(allocator, buffer_size);
+  auto buffer = reserve<char>(allocator, buffer_size);
 
   auto path_length = GetCurrentDirectory(buffer_size, buffer);
   if (!path_length) return get_system_error();

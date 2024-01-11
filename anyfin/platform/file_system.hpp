@@ -35,33 +35,38 @@ template <Core::Iterable<Core::String_View> I>
  */
 requires (!Core::is_string_literal<I>)
 static File_Path make_file_path (Core::Allocator auto &allocator, const I &segments) {
-  usize reservation_size = 0;
-  // Segments will be separated with a platform-dependent path separator and be null-terminated.
-  for (auto &s: segments) if (s) reservation_size += s.length + 1; 
+  assert(!is_empty(segments));
 
-  static_assert(Core::is_string_literal<char[8]>);
+  char *buffer = nullptr;
+  usize length = 0;
+  
+  for (auto segment: segments) {
+    auto reservation_size = segment.length + 1;
 
-  auto buffer = reserve_memory(allocator, reservation_size);
-  if (!buffer) Core::trap("Provided allocator is out of available memory");
+    auto memory = grow(allocator, &buffer, length, reservation_size, buffer != nullptr, alignof(char));
+    ensure_msg(memory, "Provided allocator is out of available memory");
 
-  auto cursor = buffer;
-  for (auto &segment: segments) {
-    Core::copy_memory(cursor, segment.value, segment.length);
-    cursor[segment.length] = get_path_separator();
-    cursor += segment.length + 1;
+    Core::copy_memory(reinterpret_cast<char*>(memory), segment.value, segment.length);
+    memory[segment.length] = get_path_separator();
+
+    length += reservation_size;
   }
 
-  buffer[reservation_size - 1] = '\0';
+  /*
+    The last path separator would be replace with a 0 to terminate the string with a null-term.
+    but the length should also be decremented to not include it.
+  */
+  buffer[--length] = '\0';
 
-  return File_Path(allocator, buffer, reservation_size - 1);
+  return File_Path(allocator, buffer, length);
 }
 
 /*
   Alternative API for a more convenient invocation of `make_file_path` using multiple segments.
   Each segment must be representable as a string.
  */
-static File_Path make_file_path (Core::Allocator auto &allocator, Core::Convertible_To<Core::String_View> auto&&... segments) {
-  Core::String_View string_segments [] { segments... };
+static File_Path make_file_path (Core::Allocator auto &allocator, Core::String_View segment, Core::Convertible_To<Core::String_View> auto&&... segments) {
+  Core::String_View string_segments [] { segment, segments... };
   return make_file_path(allocator, string_segments);
 }
 

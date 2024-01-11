@@ -14,7 +14,7 @@ static System_Error get_system_error () {
   return { GetLastError() };
 }
 
-static Core::String retrieve_system_error_message (Core::Allocator auto &allocator, const System_Error &error, Core::Convertible_To<const char *> auto&&... args) {
+static Core::String retrieve_system_error_message (Core::Allocator auto &allocator, System_Error error, Core::Convertible_To<const char *> auto&&... args) {
   const auto flags    = FORMAT_MESSAGE_FROM_SYSTEM | (sizeof...(args) > 0 ? FORMAT_MESSAGE_ARGUMENT_ARRAY : FORMAT_MESSAGE_IGNORE_INSERTS);
   const auto language = MAKELANGID(LANG_ENGLISH, SUBLANG_DEFAULT);
 
@@ -22,7 +22,7 @@ static Core::String retrieve_system_error_message (Core::Allocator auto &allocat
 
   const auto buffer_size = FormatMessageA(flags, nullptr, error.error_code, language, nullptr, 0, (va_list *)arg_array);
 
-  auto buffer = reserve_memory<char>(allocator, buffer_size);
+  auto buffer = reserve(allocator, buffer_size);
 
   const auto message_size = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | flags, nullptr, error.error_code, language, (LPSTR)&buffer, 0, (va_list *)arg_array);
 

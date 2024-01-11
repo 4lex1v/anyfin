@@ -34,4 +34,27 @@ constexpr bool is_power_of_2 (Integral auto value) {
   return (value > 0) && ((value & (value - 1)) == 0);
 }
 
+template <typename T, usize N>
+constexpr bool is_empty (T (&array)[N]) {
+  return false;
+}
+
+template <Byte_Type T = char>
+fin_forceinline
+constexpr decltype(auto) cast_bytes (Byte_Type auto *bytes) {
+  using U = decltype(bytes);
+
+  if constexpr (same_types<T, raw_type<U>>) return bytes;
+  else {
+    using Casted = copy_value_category<U, T>;
+    union {
+      U      original;
+      Casted casted;
+    } cast = { bytes };
+
+    return cast.casted;
+  }
+
+}
+
 }

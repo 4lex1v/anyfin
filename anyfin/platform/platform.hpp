@@ -20,13 +20,14 @@ struct System_Error {
   u32 error_code;
 };
 
+static Core::String retrieve_system_error_message (Core::Allocator auto &allocator, System_Error error, Core::Convertible_To<const char *> auto&&... args); 
+
 static System_Error get_system_error ();
 
-static auto to_string (const System_Error &error, Core::Allocator auto &allocator) {
-  return to_string(error.error_code, allocator);
+static auto to_string (System_Error error, Core::Allocator auto &allocator) {
+  auto message = retrieve_system_error_message(allocator, error);
+  return format_string(allocator, "System error: %, details: %", error.error_code, message);
 }
-
-static Core::String retrieve_system_error_message (Core::Allocator auto &allocator, const System_Error &error, Core::Convertible_To<const char *> auto&&... args); 
 
 template <typename T>
 using Result = Core::Result<System_Error, T>;

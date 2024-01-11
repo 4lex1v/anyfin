@@ -8,7 +8,7 @@
 
 namespace Fin::Platform {
 
-static Result<System_Command_Status> run_system_command (Core::Allocator auto &allocator, const Core::String_View &command_line) {
+static Result<System_Command_Status> run_system_command (Core::Allocator auto &allocator, Core::String_View command_line) {
   PROCESS_INFORMATION process  {};
   SECURITY_ATTRIBUTES security { .nLength = sizeof(SECURITY_ATTRIBUTES), .bInheritHandle = TRUE };
 
@@ -28,18 +28,26 @@ static Result<System_Command_Status> run_system_command (Core::Allocator auto &a
 
   CloseHandle(child_stdout_write);
 
-  Core::List<Core::String> chunks { allocator };
-  usize total_output_size = 0;
-  while (true) {
-    enum { buffer_size = 1024 };
-    auto buffer = reinterpret_cast<char *>(reserve_memory(allocator, buffer_size, alignof(char)));
+  char *output_buffer = nullptr;
+  usize output_size   = 0;
+  {
+    enum { read_buffer_size = 1024 };
+    char read_buffer[read_buffer_size];
 
-    DWORD bytes_read;
-    ReadFile(child_stdout_read, buffer, buffer_size, &bytes_read, NULL);
+    while (true) {
+      DWORD bytes_read;
+      if (!ReadFile(child_stdout_read, read_buffer, read_buffer_size, &bytes_read, NULL)) {
+        if (output_buffer) free(allocator, output_buffer, true);
+        return get_system_error();
+      }
 
-    total_output_size += bytes_read;
+      if (!bytes_read) break;
 
-    list_push(chunks, Core::String(allocator, buffer, bytes_read));
+      auto region = grow(allocator, &output_buffer, output_size, bytes_read, output_buffer != nullptr, alignof(char));
+      Core::copy_memory(region, read_buffer, bytes_read);
+
+      output_size += bytes_read;
+    }
   }
 
   DWORD return_value = 0;
@@ -56,19 +64,12 @@ static Result<System_Command_Status> run_system_command (Core::Allocator auto &a
   CloseHandle(process.hProcess);
   CloseHandle(process.hThread);
 
-  System_Command_Status result { .status_code = return_value };
+  if (!output_size) return Core::Ok(System_Command_Status { .status_code = return_value });
 
-  if (!total_output_size) return Core::Ok(Core::move(result));
-
-  auto buffer = reserve_memory(allocator, total_output_size + 1);
-  for (auto offset = 0; auto &chunk: chunks) {
-    memcpy_s(buffer + offset, total_output_size - offset, chunk.value, chunk.length);
-    offset += chunk.length;
-  }
-
-  result.output = Core::move(Core::String(allocator, reinterpret_cast<char *>(buffer), total_output_size));
-
-  return Core::Ok(Core::move(result));
+  return Core::Ok(System_Command_Status {
+    .output      = Core::String(allocator, output_buffer, output_size),
+    .status_code = return_value,
+  });
 }
 
 }

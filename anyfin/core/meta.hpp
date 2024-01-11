@@ -14,6 +14,14 @@ template <typename T> struct Remove_Ref<T &&> { using type = T; };
 template <typename T> struct Remove_Ptr      { using type = T; };
 template <typename T> struct Remove_Ptr<T *> { using type = T; };
 
+template <typename A, typename B> struct Copy_Value_Category               { using type = B; };
+template <typename A, typename B> struct Copy_Value_Category<A *, B>       { using type = B *; };
+template <typename A, typename B> struct Copy_Value_Category<A &, B>       { using type = B &; };
+template <typename A, typename B> struct Copy_Value_Category<A &&, B>      { using type = B &&; };
+template <typename A, typename B> struct Copy_Value_Category<const A, B>   { using type = const B; };
+template <typename A, typename B> struct Copy_Value_Category<const A *, B> { using type = const B *; };
+template <typename A, typename B> struct Copy_Value_Category<const A &, B> { using type = const B &; };
+
 template <typename T> struct Raw_Type                     { using type = T; };
 template <typename T> struct Raw_Type<const T>            { using type = T; };
 template <typename T> struct Raw_Type<T &&>               { using type = T; };
@@ -42,6 +50,8 @@ template <typename T>          constexpr inline bool is_static_array            
 template <typename T, usize N> constexpr inline bool is_static_array<T[N]>       = true;
 template <typename T, usize N> constexpr inline bool is_static_array<const T[N]> = true;
 
+template <typename... T> using voided = void;
+
 template <typename From, typename To>
 constexpr inline bool is_convertible = __is_convertible_to(From, To);
 
@@ -60,6 +70,8 @@ constexpr remove_ref<T> && move (T &&value) {
 
 template <typename T> constexpr T&& forward (remove_ref<T>  &value) { return static_cast<T &&>(value); }
 template <typename T> constexpr T&& forward (remove_ref<T> &&value) { return static_cast<T &&>(value); }
+
+template <typename A, typename B> using copy_value_category = internals::Copy_Value_Category<A, B>::type;
 
 template <typename A, typename B>
 concept Same_Types = same_types<A, B>;

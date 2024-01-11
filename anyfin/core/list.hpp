@@ -5,7 +5,6 @@
 
 #include "anyfin/core/allocator.hpp"
 #include "anyfin/core/option.hpp"
-#include "anyfin/core/result.hpp"
 
 namespace Fin::Core {
 
@@ -97,9 +96,9 @@ template <typename T>
 static inline void destroy (List<T> &list, const Callsite_Info info = Callsite_Info()) {
   auto cursor = list.first;
   while (cursor) {
-    destroy(cursor->value, info);
+    smart_destroy(cursor->value, info);
     auto next = cursor->next;
-    free_reservation(list.allocator, cursor);
+    free(list.allocator, cursor);
     cursor = next;
   }
 }
@@ -111,7 +110,7 @@ template <typename T>
 static void list_push (List<T> &list, List_Value<T> &&value) {
   using Node_Type = typename List<T>::Node;
 
-  auto reservation = reserve_memory(list.allocator, sizeof(Node_Type), alignof(Node_Type));
+  auto reservation = reserve(list.allocator, sizeof(Node_Type), alignof(Node_Type));
   auto node = new (reservation) Node_Type { .value = move(value) };
 
   if (list.first == nullptr) {

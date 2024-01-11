@@ -42,7 +42,7 @@ static String build_string (Allocator auto &allocator, const String_Builder &bui
   auto reservation_size = builder.length + 1;
   if (use_separator) reservation_size += builder.sections.count;
 
-  auto buffer = reinterpret_cast<char *>(reserve_memory(allocator, reservation_size, alignof(char)));
+  auto buffer = reinterpret_cast<char *>(reserve(allocator, reservation_size, alignof(char)));
 
   usize offset = 0;
   for (auto section: builder.sections) {

@@ -4,12 +4,9 @@
 #include "anyfin/base.hpp"
 
 #include "anyfin/core/strings.hpp"
-//#include "anyfin/core/closure.hpp"
 #include "anyfin/core/trap.hpp"
 
 namespace Fin::Core {
-
-struct String_View;
 
 template <typename T>
 struct Error {
@@ -58,7 +55,7 @@ struct Tag {
 
   Value value;
 
-  operator bool () const { return value == Success; }
+  constexpr operator bool (this auto self) { return self.value == Error; }
 
   Tag (Value _value): value { _value } {}
 };
