@@ -58,6 +58,12 @@ static File_Path make_file_path (Core::Allocator auto &allocator, const I &segme
   */
   buffer[--length] = '\0';
 
+#ifdef PLATFORM_WIN32
+  for (usize idx = 0; idx < length; idx++) {
+    if (buffer[idx] == '/') buffer[idx] = '\\';
+  }
+#endif
+
   return File_Path(allocator, buffer, length);
 }
 
@@ -139,7 +145,7 @@ static Result<void> delete_directory (File_Path_View path) {
   resource exists on the file system or not. If it's a file and has an extension, the extension
   would be included.
  */
-static Result<Core::Option<Core::String>> get_resource_name (Core::Allocator auto &allocator, File_Path_View path) ;
+static Result<Core::String> get_resource_name (Core::Allocator auto &allocator, File_Path_View path) ;
 
 static Result<File_Path> get_absolute_path (Core::Allocator auto &allocator, File_Path_View path) ;
 

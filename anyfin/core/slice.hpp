@@ -27,12 +27,12 @@ struct Slice {
   constexpr decltype(auto) operator *  (this auto &&self)               { return *self.elements; }
 
   constexpr Slice<T> operator + (this auto self, usize offset) {
-    assert(offset < self.count);
+    assert(offset <= self.count);
     return Slice(self.elements + offset, self.count - offset);
   }
 
   constexpr Slice<T>& operator += (this Slice<T> &self, usize offset) {
-    assert(offset < self.count);
+    assert(offset <= self.count);
 
     self.elements += offset;
     self.count    -= offset;
@@ -43,7 +43,7 @@ struct Slice {
   constexpr Slice<T> operator ++ (this Slice<T> &self, int) { return (self += 1); }
 
   constexpr decltype(auto) begin (this auto self) { return self.elements; }
-  constexpr decltype(auto) end   (this auto self) { return self.elements; }
+  constexpr decltype(auto) end   (this auto self) { return self.elements + self.count; }
 };
 
 template <typename T>

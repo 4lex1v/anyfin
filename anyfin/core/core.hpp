@@ -3,6 +3,8 @@
 
 #include "anyfin/base.hpp"
 
-constexpr bool is_power_of_2 (const auto &value) {
-  return (value > 0) && ((value & (value - 1)) == 0);
-}
+#ifdef FIN_EMBED_STATE
+#define FIN_EXTERN_STATE
+#else
+#define FIN_EXTERN_STATE extern
+#endif

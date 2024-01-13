@@ -4,18 +4,23 @@
 #include "anyfin/base.hpp"
 
 #include "anyfin/core/allocator.hpp"
-#include "anyfin/core/assert.hpp"
 #include "anyfin/core/memory.hpp"
 #include "anyfin/core/meta.hpp"
 #include "anyfin/core/prelude.hpp"
 
 namespace Fin::Core {
 
+struct String_View;
 struct String;
 
 template <typename T>
 concept String_Convertible = requires (Allocator_View allocator, T a) {
   { to_string(a, allocator) } -> Same_Types<String>;
+};
+
+template <typename T>
+concept Printable = String_Convertible<T> || requires (T value) {
+  static_cast<String_View>(value);
 };
 
 // NOTE: Won't include the terminating null into the length
@@ -32,15 +37,19 @@ struct String_View {
   const char *value;
   usize       length;
 
+  fin_forceinline
   constexpr String_View (): value { nullptr }, length { 0 } {}
 
   template <usize N>
+  fin_forceinline
   constexpr String_View (Byte_Array<N> auto (&literal)[N])
     : value { cast_bytes(literal) }, length { N - 1 } {}
 
+  fin_forceinline
   constexpr String_View (Byte_Pointer auto _value, usize _length)
     : value { cast_bytes(_value) }, length { _length } {}
 
+  fin_forceinline
   constexpr String_View (Byte_Pointer auto _value) {
     this->value  = cast_bytes(_value);
     this->length = get_string_length(this->value);
@@ -48,6 +57,7 @@ struct String_View {
 
   constexpr String_View (const String &string);
 
+  fin_forceinline
   constexpr String_View& operator = (String_View other) {
     this->value  = other.value;
     this->length = other.length;
@@ -61,7 +71,6 @@ struct String_View {
   constexpr auto operator [] (this auto self, usize idx) { return self.value[idx]; }
 
   constexpr auto operator + (this auto self, Integral auto offset) {
-    assert(offset <= self.length);
     return String_View(self.value + offset, self.length - offset);
   }
 
@@ -70,6 +79,8 @@ struct String_View {
 };
 
 static_assert(sizeof(String_View) == 16);
+
+static void destroy (String &string, const Callsite_Info info = {});
 
 struct String {
   Allocator_View allocator;
@@ -99,20 +110,21 @@ struct String {
   }
 
   String& operator = (const String &other) {
-    this->~String();
+    destroy(*this);
     copy_string(other.allocator, *this, other);
     return *this;
   }
 
   String& operator = (String &&other) {
-    this->~String();
+    destroy(*this);
 
     this->allocator = move(other.allocator);
     this->value     = other.value;
     this->length    = other.length;
     
-    other.value  = nullptr;
-    other.length = 0;
+    other.allocator = {};
+    other.value     = nullptr;
+    other.length    = 0;
 
     return *this;
   }
@@ -126,13 +138,14 @@ struct String {
     if (is_empty(view)) return {};
 
     String new_string;
+    new_string.allocator = allocator;
     copy_string(allocator, new_string, view);
 
     return new_string;
   }
 
   static String copy (Allocator auto &allocator, const String &string, Callsite_Info callsite = {}) {
-    return copy(allocator, string, callsite);
+    return copy(allocator, static_cast<String_View>(string), callsite);
   }
   
   static String copy (Allocator auto &allocator, const char *value, const usize length, Callsite_Info callsite = {}) {
@@ -158,11 +171,12 @@ private:
   }
 };
 
+fin_forceinline
 constexpr String_View::String_View (const String &string)
   : value { string.value }, length { string.length } {}
 
-static void destroy (String &string, const Callsite_Info info = Callsite_Info()) {
-  free(string.allocator, (void*)string.value, false, info);
+static void destroy (String &string, const Callsite_Info info) {
+  if (string.value) free(string.allocator, (void*)string.value, false, info);
 }
 
 constexpr String copy (const String &string, const Callsite_Info callsite = {}) {

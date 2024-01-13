@@ -5,15 +5,17 @@
 #include "anyfin/core/format.hpp"
 #include "anyfin/core/meta.hpp"
 
+#include "anyfin/platform/platform.hpp"
+
 namespace Fin::Core {
 
-static void console_print_message (const String_View &string);
+static Fin::Platform::Result<void> print (String_View string);
 
 template <usize MEMORY_SIZE = 1024, typename... Args>
-static void print (Format_String &&format, Args&&... args) {
+static Fin::Platform::Result<void> print (Format_String &&format, Args&&... args) {
   Local_Arena<MEMORY_SIZE> local;
-  auto message = format_string(local, move(format), forward<Args>(args)...);
-  console_print_message(message);
+  auto message = format_string(local.arena, move(format), forward<Args>(args)...);
+  return print(message);
 }
 
 }

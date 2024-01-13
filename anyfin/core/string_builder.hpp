@@ -6,13 +6,11 @@
 #include "anyfin/core/allocator.hpp"
 #include "anyfin/core/strings.hpp"
 #include "anyfin/core/list.hpp"
-#include "anyfin/core/slice.hpp"
 
 namespace Fin::Core {
 
 struct String_Builder {
   List<String_View> sections;
-
   usize length = 0;
 
   String_Builder (Allocator auto &_allocator)
@@ -34,7 +32,12 @@ struct String_Builder {
 
   void operator += (const String_View &value) { add(value); }
   void operator += (const String &string)     { add(string); }
+  void operator += (const char *value)        { add(String_View(value)); }
 };
+
+static void destroy (String_Builder &builder, Callsite_Info callsite = {}) {
+  destroy(builder.sections, callsite);
+}
 
 static String build_string (Allocator auto &allocator, const String_Builder &builder, bool use_separator, char separator) {
   if (!builder.length) return {};
@@ -42,13 +45,11 @@ static String build_string (Allocator auto &allocator, const String_Builder &bui
   auto reservation_size = builder.length + 1;
   if (use_separator) reservation_size += builder.sections.count;
 
-  auto buffer = reinterpret_cast<char *>(reserve(allocator, reservation_size, alignof(char)));
+  auto buffer = reserve(allocator, reservation_size);
 
   usize offset = 0;
   for (auto section: builder.sections) {
-    assert(section.length > 0);
-      
-    memcpy(buffer + offset, section.value, section.length);
+    copy_memory(buffer + offset, section.value, section.length);
     offset += section.length;
 
     if (use_separator) buffer[offset++] = separator;
@@ -65,6 +66,23 @@ static String build_string (Allocator auto &allocator, const String_Builder &bui
 
 static String build_string_with_separator (Allocator auto &allocator, const String_Builder &builder, char separator) {
   return build_string(allocator, builder, true, separator);
+}
+
+template <Allocator Alloc_Type>
+static String concat_string (Alloc_Type &allocator, Printable auto &&... args) {
+  String_Builder builder { allocator };
+  defer { alloc_destroy<Alloc_Type>(builder); };
+
+  const auto append = [&] (auto &&arg) {
+    if constexpr (Convertible_To<decltype(arg), String_View>)
+      builder += static_cast<String_View>(arg);
+    else
+      builder += to_string(arg, allocator);
+  };
+
+  (append(args), ...);
+
+  return build_string(allocator, builder);
 }
 
 }

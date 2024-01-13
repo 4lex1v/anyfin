@@ -61,12 +61,7 @@ struct Option {
   }
 
   constexpr const Value_Type & get (const char *message = "Attempt to dereference an empty Option value") const {
-    if (is_none()) [[unlikely]] trap(message);
-    return this->value;
-  }
-
-  constexpr Value_Type & get (const char *message = "Attempt to dereference an empty Option value") {
-    if (is_none()) [[unlikely]] trap(message);
+    if (this->is_none()) [[unlikely]] trap(message);
     return this->value;
   }
 
@@ -80,14 +75,14 @@ struct Option {
   }
 
   constexpr void handle_value (const Invocable<void, const T &> auto &closure) const {
-    if (is_some()) closure(get());
+    if (is_some()) closure(this->get());
   }
 };
 
 template <typename T>
 static void destroy (Option<T> &option, Callsite_Info callsite = {}) {
   if (option) {
-    smart_destroy(option, callsite);
+    smart_destroy(option.value, callsite);
     option.has_value = false;
   }
 }

@@ -8,11 +8,6 @@
 
 namespace Fin::Core {
 
-template <typename T>
-concept Printable = String_Convertible<T> || requires (T value) {
-  static_cast<String_View>(value);
-};
-
 struct Format_String {
   /*
     Segment is a continious sequence of characters in the given format_string value.
@@ -103,10 +98,10 @@ template <Allocator Alloc_Type, Printable... Args>
 static String format_string (Alloc_Type &allocator, const Format_String &format, Args&&... args) {
   constexpr usize N = sizeof...(Args);
 
-  assert(format.placeholder_count == N);
+  assert(N == format.placeholder_count);
 
   Core::List<String> free_list { allocator };
-  defer { destroy(free_list); };
+  defer { alloc_destroy<Alloc_Type>(free_list); };
 
   auto render_value = [&free_list, &allocator] (const auto &value) -> String_View {
     if constexpr (is_convertible<decltype(value), String_View>)
@@ -141,7 +136,6 @@ static String format_string (Alloc_Type &allocator, const Format_String &format,
         break;
       }
       case Format_String::Segment::Type::Placeholder: {
-        assert(arg_index < N);
         auto entry = arguments + arg_index;
 
         copy_memory(buffer + cursor, entry->value, entry->length);
@@ -159,7 +153,11 @@ static String format_string (Alloc_Type &allocator, const Format_String &format,
   return String(allocator, buffer, reservation_size - 1);
 }
 
-static auto to_string (const char value, Allocator auto &allocator) {
+static auto to_string (bool value, Allocator auto &allocator) {
+  return String::copy(allocator, value ? String_View("true") : String_View("false"));
+}
+
+static auto to_string (char value, Allocator auto &allocator) {
   auto memory = reserve(allocator, sizeof(char) + 1, alignof(char));
   if (!memory) trap("Out of memory");
 

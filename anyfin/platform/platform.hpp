@@ -5,6 +5,7 @@
 
 #include "anyfin/core/allocator.hpp"
 #include "anyfin/core/strings.hpp"
+#include "anyfin/core/string_builder.hpp"
 #include "anyfin/core/result.hpp"
 
 namespace Fin::Platform {
@@ -18,21 +19,37 @@ static bool is_win32 () { return get_platform_type() == Platform::Win32; }
 
 struct System_Error {
   u32 error_code;
+  Core::String_View details;
 };
 
-static Core::String retrieve_system_error_message (Core::Allocator auto &allocator, System_Error error, Core::Convertible_To<const char *> auto&&... args); 
+static void destroy (System_Error error);
 
-static System_Error get_system_error ();
+static u32 get_system_error_code ();
 
-static auto to_string (System_Error error, Core::Allocator auto &allocator) {
-  auto message = retrieve_system_error_message(allocator, error);
-  return format_string(allocator, "System error: %, details: %", error.error_code, message);
+static System_Error get_system_error (Core::Convertible_To<const char *> auto&&... args);
+
+template <Core::Allocator A>
+static auto to_string (System_Error error, A &allocator) {
+  Core::String_Builder builder { allocator };
+  defer { alloc_destroy<A>(builder); };
+
+  builder += Core::String_View("System error: ");
+  builder += to_string(error.error_code, allocator);
+
+  if (!is_empty(error.details)) {
+    builder += Core::String_View("details: ");
+    builder += error.details;
+  }
+
+  return build_string_with_separator(allocator, builder, ',');
 }
 
 template <typename T>
 using Result = Core::Result<System_Error, T>;
 
 static u32 get_logical_cpu_count (); 
+
+static Result<Core::Option<Core::String>> get_env_var (Core::Allocator auto &allocator, Core::String_View name);
 
 }
 

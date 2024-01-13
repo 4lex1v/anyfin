@@ -42,7 +42,12 @@ static Result<void> create_resource (File_Path_View path, const Resource_Type re
 
 static Result<bool> check_resource_exists (File_Path_View path, Resource_Type resource_type) {
   const DWORD attributes = GetFileAttributes(path.value);
-  if (attributes == INVALID_FILE_ATTRIBUTES) return Core::Error(get_system_error());
+  if (attributes == INVALID_FILE_ATTRIBUTES) {
+    const auto error_code = get_system_error_code();
+    if ((error_code == ERROR_FILE_NOT_FOUND) || (error_code == ERROR_PATH_NOT_FOUND)) return false;
+
+    return get_system_error();
+  }
 
   switch (resource_type) {
     case Resource_Type::File:      return Core::Ok(!(attributes  & FILE_ATTRIBUTE_DIRECTORY));
@@ -69,7 +74,7 @@ static Result<void> delete_resource (File_Path_View path, Resource_Type resource
         Core::Local_Arena<2048> arena;
 
         auto delete_recursive = [] (this auto self, Core::Memory_Arena &allocator, File_Path_View path) -> Result<void> {
-          auto directory_search_query = format_string(allocator, "%\\*", path);
+          auto directory_search_query = concat_string(allocator, path, "\\*");
   
           WIN32_FIND_DATA data;
           auto search_handle = FindFirstFile(directory_search_query, &data);
@@ -79,8 +84,8 @@ static Result<void> delete_resource (File_Path_View path, Resource_Type resource
           do {
             auto local = allocator;
 
-            auto file_name = Core::String_View(data.cFileName);
-            auto sub_path  = format_string(local, "%\\%", path, file_name);
+            auto file_name = Core::String_View(Core::cast_bytes(data.cFileName));
+            auto sub_path  = concat_string(local, path, "\\", file_name);
 
             if (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
               if (Core::compare_strings(file_name, ".") || Core::compare_strings(file_name, "..")) continue;
@@ -102,7 +107,7 @@ static Result<void> delete_resource (File_Path_View path, Resource_Type resource
   }
 }
 
-static Result<Core::Option<Core::String>> get_resource_name (Core::Allocator auto &allocator, File_Path_View path) {
+static Result<Core::String> get_resource_name (Core::Allocator auto &allocator, File_Path_View path) {
   char buffer[MAX_PATH];
 
   char *file_name_offset = nullptr;
@@ -111,7 +116,7 @@ static Result<Core::Option<Core::String>> get_resource_name (Core::Allocator aut
 
   if (file_name_offset) {
     const auto name_length = (buffer + length) - file_name_offset;
-    return Core::Option(Core::String::copy(allocator, file_name_offset, name_length));
+    return Core::String::copy(allocator, file_name_offset, name_length);
   }
   
   Core::trap("Unimplemented");
@@ -120,7 +125,7 @@ static Result<Core::Option<Core::String>> get_resource_name (Core::Allocator aut
 static Result<File_Path> get_absolute_path (Core::Allocator auto &allocator, File_Path_View path) {
   auto full_path_name_length = GetFullPathName(path, 0, nullptr, nullptr);
 
-  auto buffer = reserve(allocator, full_path_name_length, alignof(char));
+  auto buffer = reserve(allocator, full_path_name_length);
 
   if (!GetFullPathName(path, full_path_name_length, buffer, nullptr)) {
     free(allocator, buffer);
@@ -167,7 +172,7 @@ static Result<Core::List<File_Path>> list_files (Core::Allocator auto &allocator
   auto list_recursive = [extension, recursive, &file_list] (this auto self, Core::Memory_Arena &arena, File_Path_View directory) -> Result<void> {
     WIN32_FIND_DATAA data;
 
-    auto query = format_string(arena, "%\\*", directory);
+    auto query = concat_string(arena, directory, "\\*");
 
     auto search_handle = FindFirstFile(query, &data);
     if (search_handle == INVALID_HANDLE_VALUE) return Core::Error(get_system_error());
@@ -176,25 +181,19 @@ static Result<Core::List<File_Path>> list_files (Core::Allocator auto &allocator
     do {
       auto local = arena;
       
-      const auto file_name = String_View(data.cFileName);
-
-      if (compare_strings(file_name, ".") ||
-          compare_strings(file_name, "..")) continue;
+      const auto file_name = Core::String_View(Core::cast_bytes(data.cFileName));
+      if (compare_strings(file_name, ".") || compare_strings(file_name, "..")) continue;
 
       if (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-        if (recursive) {
-          auto subfolder = format_string(local, "%\\%", directory, Core::String_View(data.cFileName));
-          fin_check(self(local, subfolder));
-        }
+        if (recursive) fin_check(self(local, concat_string(local, directory, "\\", file_name)));
       }
       else {
         if (!ends_with(file_name, extension)) continue;
           
-        auto file_path = make_file_path(local, "%\\%", directory, Core::String_View(data.cFileName));
+        auto file_path = concat_string(local, directory, "\\", file_name);
         if (!file_list.contains([&file_path] (auto &it) { return compare_strings(it, file_path); }))
           list_push(file_list, move(file_path));
       }
-
     } while (FindNextFileA(search_handle, &data) != 0);
 
     return Core::Ok();
@@ -206,30 +205,30 @@ static Result<Core::List<File_Path>> list_files (Core::Allocator auto &allocator
 }
 
 static Result<void> copy_directory (File_Path_View from, File_Path_View to) {
-  Core::Local_Arena<2048> arena;
+  auto copy_recursive = [] (this auto self, File_Path_View from, File_Path_View to) -> Result<void> {
+    Core::Local_Arena<2048> local;
+    auto &arena = local.arena;
 
-  auto copy_recursive = [] (this auto self, Core::Memory_Arena &arena, File_Path_View from, File_Path_View to) -> Result<void> {
     WIN32_FIND_DATA find_file_data;
 
-    auto search_query = format_string(arena, "%\\*", from);
+    auto search_query = concat_string(arena, from, "\\*");
 
     auto search_handle = FindFirstFile(search_query.value, &find_file_data);
-    if (search_handle == INVALID_HANDLE_VALUE) return Core::Error(get_system_error());
+    if (search_handle == INVALID_HANDLE_VALUE) return get_system_error();
     defer { FindClose(search_handle); };
 
     do {
       auto scoped = arena;
 
-      auto file_to_move = format_string(scoped, "%\\%", from, find_file_data.cFileName);
-      auto destination  = format_string(scoped, "%\\%", to,   find_file_data.cFileName);
+      auto file_name = Core::String_View(Core::cast_bytes(find_file_data.cFileName));
+      if (compare_strings(file_name, ".") || compare_strings(file_name, "..")) continue;
+
+      auto file_to_move = concat_string(scoped, from, "\\", file_name);
+      auto destination  = concat_string(scoped, to,   "\\", file_name);
 
       if (find_file_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-        if (compare_strings(Core::String_View(find_file_data.cFileName), ".") == 0 ||
-            compare_strings(Core::String_View(find_file_data.cFileName), "..") == 0) continue;
-
         if (!CreateDirectory(destination, nullptr)) return get_system_error();
-
-        fin_check(self(scoped, file_to_move, destination));
+        fin_check(self(file_to_move, destination));
       }
       else {
         if (!CopyFile(file_to_move.value, destination.value, FALSE)) return get_system_error();
@@ -241,7 +240,7 @@ static Result<void> copy_directory (File_Path_View from, File_Path_View to) {
 
   fin_check(create_directory(to));
 
-  return copy_recursive(arena, from, to);
+  return copy_recursive(from, to);
 }
 
 static Result<File> open_file (File_Path &&path, Core::Bit_Mask<File_System_Flags> flags) {

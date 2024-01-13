@@ -8,8 +8,6 @@
 
 namespace Fin::Core {
 
-struct Memory_Arena;
-
 struct Allocation_Request {
   enum Type { Reserve, Grow, Free };
 
@@ -104,13 +102,21 @@ static u8 * allocator_dispatch (const Allocator_View &view, const Allocation_Req
 }
 
 template <typename T>
-concept Destructible = requires (T &value, Callsite_Info info) {
-  { destroy(value, info) } -> Same_Types<void>;
+concept Destructible = requires (T &value, Callsite_Info callsite) {
+  { destroy(value, callsite) } -> Same_Types<void>;
 };
 
 template <typename T>
-static void smart_destroy (T &value, Callsite_Info info = Callsite_Info()) {
-  if constexpr (Destructible<T>) destroy(value, info); else value.~T();
+static void smart_destroy (T &value, Callsite_Info callsite = {}) {
+  if constexpr (Destructible<T>) destroy(value, callsite); else value.~T();
+}
+
+struct Memory_Arena;
+
+template <Allocator A>
+static void alloc_destroy (auto &value, Callsite_Info callsite = {}) {
+  if constexpr (!Same_Types<A, Memory_Arena>)
+    smart_destroy(value, callsite);
 }
 
 }

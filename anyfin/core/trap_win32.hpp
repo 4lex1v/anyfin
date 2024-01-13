@@ -6,18 +6,16 @@
 
 namespace Fin::Core {
 
-static Crash_Handler crash_handler = terminate;
-
 static void set_crash_handler (Crash_Handler handler) {
   crash_handler = handler;
 }
 
 static void trap (const char *message) {
   auto message_length = 0;
-  while (message[message_length++]);
+  while (message[message_length])
+    message_length += 1;
 
-  auto stdout = GetStdHandle(STD_OUTPUT_HANDLE);
-  WriteConsole(stdout, message, message_length, nullptr, nullptr);
+  Win32_Internals::stdout_print(message, message_length);
   
   crash_handler(1);
   __builtin_unreachable();

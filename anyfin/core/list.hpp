@@ -3,6 +3,7 @@
 
 #include "anyfin/base.hpp"
 
+#include "anyfin/core/assert.hpp"
 #include "anyfin/core/allocator.hpp"
 #include "anyfin/core/option.hpp"
 
@@ -16,6 +17,10 @@ struct List {
     Value_Type  value;
     Node       *next;
     Node       *previous;
+
+    void * operator new (usize size, Allocator auto &allocator) {
+      return reserve<Node>(allocator);
+    }
   };
 
   Allocator_View allocator;
@@ -110,10 +115,12 @@ template <typename T>
 static void list_push (List<T> &list, List_Value<T> &&value) {
   using Node_Type = typename List<T>::Node;
 
-  auto reservation = reserve(list.allocator, sizeof(Node_Type), alignof(Node_Type));
-  auto node = new (reservation) Node_Type { .value = move(value) };
+  assert(list.allocator.value != nullptr);
+
+  auto node = new (list.allocator) Node_Type { .value = move(value) };
 
   if (list.first == nullptr) {
+    assert(list.last == nullptr);
     list.first = node;
     list.last  = node;
   }

@@ -25,7 +25,7 @@ struct Seq {
     : allocator { _allocator },
       capacity  { initial_capacity }
   {
-    auto memory = reserve(_allocator, initial_capacity * sizeof(T), alignof(T), callsite);
+    auto memory = reserve<T>(_allocator, initial_capacity, alignof(T), callsite);
     if (!memory) trap("Allocator has ran out of available memory");
 
     this->data = reinterpret_cast<T *>(memory);

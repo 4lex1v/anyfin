@@ -3,9 +3,13 @@
 
 #include "anyfin/base.hpp"
 
+#include "anyfin/core/core.hpp"
+
 namespace Fin::Core {
 
 using Crash_Handler = void (*) (u32 crash_handler);
+
+FIN_EXTERN_STATE Crash_Handler crash_handler;
 
 static void set_crash_handler (Crash_Handler handler);
 

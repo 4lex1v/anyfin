@@ -92,14 +92,16 @@ struct Result {
     return get([trap_message] (auto &) { trap(trap_message); });
   }
 
-  Value_Type && take (const Invocable<void, const Status_Type &> auto &func) {
-    if (this->tag.value != Tag::Success) [[unlikely]] func(this->status);
+  Value_Type && take (const Invocable<String_View, const Status_Type &> auto &func) {
+    if (this->tag.value != Tag::Success) [[unlikely]] trap(func(this->status));
     this->tag = Tag::Empty;
     return move(this->value);
   }
 
   Value_Type && take (String_View trap_message = "Attempt to access value of a failed result\n") {
-    return take([trap_message] (auto &) { trap(trap_message); });
+    if (this->tag.value != Tag::Success) [[unlikely]] trap(trap_message);
+    this->tag = Tag::Empty;
+    return move(this->value);
   }
 
   Value_Type&& operator * () && {
@@ -136,8 +138,39 @@ struct Result<S, void> {
 
   constexpr operator bool () const { return tag.value == Tag::Success; }
 
-  void expect (const String_View &message = "Failed result value") {
-    if (tag.value == Tag::Error) trap(message);
+  void expect (String_View message = "Failed result value") {
+    if (this->tag.value != Tag::Success) [[unlikely]] trap(message);
+  }
+
+  void expect (const Invocable<String_View, const Status_Type &> auto &func) {
+    expect(func(this->status));
+  }
+};
+
+template <typename S>
+struct Result<S, bool> {
+  using Status_Type = S;
+  using Value_Type  = void;
+
+  Tag         tag;
+  Status_Type status;
+  bool        value;
+
+  constexpr Result (Error<S>&& error): tag { Tag::Error }, status { move(error.value) } {}
+  constexpr Result (Status_Type &&status): tag { Tag::Error }, status { move(status) } {}
+
+  constexpr Result (Ok<bool>&& ok): tag { Tag::Success }, value { ok.value } {}
+  constexpr Result (bool _value): tag { Tag::Success }, value { _value } {}
+
+  constexpr operator bool () const { return tag.value == Tag::Success; }
+
+  bool check (String_View message = "Failed result value") {
+    if (this->tag.value != Tag::Success) [[unlikely]] trap(message);
+    return value;
+  }
+
+  bool check (const Invocable<String_View, const Status_Type &> auto &func) {
+    return check(func(this->status));
   }
 };
 

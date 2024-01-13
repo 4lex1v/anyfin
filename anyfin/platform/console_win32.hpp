@@ -1,19 +1,20 @@
 
+#define CONSOLE_HPP_IMPL
+
 #include "anyfin/core/strings.hpp"
 
-#define CONSOLE_HPP_IMPL
 #include "anyfin/platform/console.hpp"
 
 #include "anyfin/core/win32.hpp"
 
 namespace Fin::Core {
 
-/*
-  TODO: Thread UNSAFE implementation
- */
-static void console_print_message (const String_View &message) {
-  auto stdout = GetStdHandle(STD_OUTPUT_HANDLE);
-  WriteConsole(stdout, message.value, message.length, nullptr, nullptr);
+static Fin::Platform::Result<void> print (String_View message) {
+  if (!Win32_Internals::stdout_print(message, message.length)) {
+    return Platform::get_system_error();
+  }
+
+  return Core::Ok();
 }
 
 // Status_Code attach_console () {
