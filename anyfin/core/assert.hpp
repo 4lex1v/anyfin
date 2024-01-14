@@ -101,7 +101,7 @@ static void assert_hook (const char *expr, const char *message, const Callsite_I
   
   {
     auto length = get_length(message);
-    __builtin_memcpy(buffer + offset, callsite.function, length);
+    __builtin_memcpy(buffer + offset, message, length);
     offset += length;
   }
 

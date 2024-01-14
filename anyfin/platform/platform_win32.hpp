@@ -24,11 +24,11 @@ static System_Error get_system_error (Core::Convertible_To<const char *> auto&&.
   const char *arg_array[] = { args..., nullptr };
 
   LPSTR message = nullptr;
-  FormatMessageA(
+  auto message_length = FormatMessage(
     FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | (sizeof...(args) > 0 ? FORMAT_MESSAGE_ARGUMENT_ARRAY : FORMAT_MESSAGE_IGNORE_INSERTS),
     nullptr, error_code, MAKELANGID(LANG_ENGLISH, SUBLANG_DEFAULT), (LPSTR)&message, 0, (va_list *)arg_array);
 
-  return System_Error { error_code, Core::String_View(message) };
+  return System_Error { error_code, Core::String_View(message, message_length) };
 }
 
 static void destroy (System_Error error) {

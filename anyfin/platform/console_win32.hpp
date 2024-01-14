@@ -1,10 +1,7 @@
 
 #define CONSOLE_HPP_IMPL
 
-#include "anyfin/core/strings.hpp"
-
 #include "anyfin/platform/console.hpp"
-
 #include "anyfin/core/win32.hpp"
 
 namespace Fin::Core {

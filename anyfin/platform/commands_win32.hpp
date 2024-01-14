@@ -15,6 +15,7 @@ static Result<System_Command_Status> run_system_command (Core::Allocator auto &a
   HANDLE child_stdout_read, child_stdout_write;
   if (!CreatePipe(&child_stdout_read, &child_stdout_write, &security, 0))   return get_system_error();
   if (!SetHandleInformation(child_stdout_read, HANDLE_FLAG_INHERIT, FALSE)) return get_system_error();
+  defer {  CloseHandle(child_stdout_read); };
   
   STARTUPINFO info {
     .cb         = sizeof(STARTUPINFO),
@@ -26,6 +27,10 @@ static Result<System_Command_Status> run_system_command (Core::Allocator auto &a
   PROCESS_INFORMATION process {};
   if (!CreateProcess(nullptr, const_cast<char *>(command_line.value), &security, &security, TRUE, 0, NULL, NULL, &info, &process))
     return get_system_error();
+  defer {
+    CloseHandle(process.hThread);
+    CloseHandle(process.hProcess);
+  };
 
   CloseHandle(child_stdout_write);
 
@@ -53,11 +58,13 @@ static Result<System_Command_Status> run_system_command (Core::Allocator auto &a
       /*
         Tiny hack to reserve space for the terminating 0
        */
-      auto reservation_size = bytes_available + static_cast<usize>(!output_buffer);
+      auto first_allocation_offset = static_cast<usize>(!output_buffer);
+      auto reservation_size = bytes_available + first_allocation_offset;
       auto region = grow(allocator, &output_buffer, output_size, reservation_size, !!output_buffer, alignof(char));
+      auto buffer = region - static_cast<usize>(!first_allocation_offset); // offset the added byte for subsequent allocations.
 
       DWORD bytes_read;
-      if (!ReadFile(child_stdout_read, region, bytes_available, &bytes_read, NULL)) {
+      if (!ReadFile(child_stdout_read, buffer, bytes_available, &bytes_read, NULL)) {
         auto error_code = get_system_error_code();
         /*
           According to ReadFile docs if the child process has closed its end of the pipe, indicated
@@ -75,9 +82,13 @@ static Result<System_Command_Status> run_system_command (Core::Allocator auto &a
     }
   }
 
-  CloseHandle(process.hProcess);
-  CloseHandle(process.hThread);
-  CloseHandle(child_stdout_read);
+  /*
+    While the above loop should ensure that the process has finished and exited (since we got the exit_code),
+    something is still off and making subsquent calls to dependent files may fail, because the child process
+    didn't release all resources. For example, in the test kit calling delete_directory to cleanup the testsite
+    without this wait block, not all resources are released and the delete call may fail.
+   */
+  WaitForSingleObject(process.hProcess, INFINITE);
 
   if (!output_size) return Core::Ok(System_Command_Status { .status_code = exit_code });
 

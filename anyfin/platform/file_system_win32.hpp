@@ -152,7 +152,7 @@ static Result<File_Path> get_working_directory (Core::Allocator auto &allocator)
   auto buffer_size = GetCurrentDirectory(0, nullptr);
   if (buffer_size == 0) return Core::Error(get_system_error());
   
-  auto buffer = reserve<char>(allocator, buffer_size);
+  auto buffer = reserve(allocator, buffer_size);
 
   auto path_length = GetCurrentDirectory(buffer_size, buffer);
   if (!path_length) return get_system_error();

@@ -13,7 +13,9 @@ struct Callsite_Info {
 
   consteval Callsite_Info (const u32 _l = __builtin_LINE(), const u32 _c = __builtin_COLUMN(),
                            const char *_fl = __builtin_FILE(), const char *_fn = __builtin_FUNCTION())
-    : line { _l }, column { _c}, file { _fl }, function { _fn} {}
+    : line { _l }, column { _c }, file { _fl }, function { _fn }
+  {}
 };
+
 
 }

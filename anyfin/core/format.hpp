@@ -120,6 +120,7 @@ static String format_string (Alloc_Type &allocator, const Format_String &format,
   for (auto &a: arguments) reservation_size += a.length;
 
   auto buffer = reserve(allocator, reservation_size);
+  if (!buffer) trap("Allocator is out of memory");
 
   usize cursor    = 0;
   usize arg_index = 0;

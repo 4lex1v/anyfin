@@ -19,18 +19,18 @@ struct Allocation_Request {
   usize alignment = 0;
   bool  immediate = false;
 
-  Callsite_Info info;
+  Callsite_Info callsite;
 
   Allocation_Request (const usize _size, const usize _alignment = alignof(void *), const Callsite_Info _info = {})
-    : type { Reserve }, size { _size }, alignment { _alignment }, info { _info } {}
+    : type { Reserve }, size { _size }, alignment { _alignment }, callsite { _info } {}
 
   Allocation_Request (void *_address, const usize _old_size, const usize _size,
                       bool _immediate = false, usize reserve_alignment = alignof(void*), const Callsite_Info _info = {})
     : type { Grow }, address { _address }, old_size { _old_size }, size { _size },
-      immediate { _immediate }, alignment { reserve_alignment }, info { _info } {}
+      immediate { _immediate }, alignment { reserve_alignment }, callsite { _info } {}
 
   Allocation_Request (void *_address, bool _immediate, const Callsite_Info _info = {})
-    : type { Free }, address { _address }, immediate { _immediate }, info { _info } {}
+    : type { Free }, address { _address }, immediate { _immediate }, callsite { _info } {}
 };
 
 template <typename A>
@@ -41,7 +41,7 @@ concept Allocator = requires (A &alloc, Allocation_Request request) {
 template <typename T = char>
 fin_forceinline
 static T * reserve (Allocator auto &allocator, const usize count = 1, const usize alignment = alignof(T), const Callsite_Info info = {}) {
-  return reinterpret_cast<T *>(allocator_dispatch(allocator, Allocation_Request(sizeof(T) * count, alignment, info)));
+  return reinterpret_cast<T*>(allocator_dispatch(allocator, Allocation_Request(sizeof(T) * count, alignment, info)));
 }
 
 /*

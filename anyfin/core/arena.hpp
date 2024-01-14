@@ -12,23 +12,25 @@
 namespace Fin::Core {
 
 struct Memory_Arena {
-  u8 *memory;
-  usize size;
-  usize offset;
+  u8 *memory   = nullptr;
+  usize size   = 0;
+  usize offset = 0;
 
   constexpr Memory_Arena (u8 *_memory, const usize _size)
     : memory { _memory },
       size   { _size },
       offset { 0 }
-  {}
+  {
+    assert(_memory);
+    assert(size > sizeof(void*));
+  }
 
   template <usize N>
   constexpr Memory_Arena (Byte_Array<N> auto (&array)[N])
     : Memory_Arena(cast_bytes<u8>(array), N) {}
 
   constexpr Memory_Arena (Memory_Region &&other)
-    : memory { other.memory },
-      size   { other.size }
+    : Memory_Arena(other.memory, other.size)
   {
     other.memory = nullptr;
     other.size   = 0;
@@ -57,8 +59,8 @@ static u8 * arena_reserve (Memory_Arena &arena, usize size, usize alignment) {
   return aligned_base;
 }
 
-static u8 * arena_grow (Memory_Arena &arena, void *address, usize old_size, usize new_size, bool immediate,
-                        usize reserve_alignment) {
+static u8 * arena_grow (Memory_Arena &arena, void *address, usize old_size, usize new_size,
+                        bool immediate, usize reserve_alignment) {
   assert(new_size >= 1);
   
   if (address == nullptr) {
@@ -66,8 +68,15 @@ static u8 * arena_grow (Memory_Arena &arena, void *address, usize old_size, usiz
     return nullptr;
   }
 
+  assert(address);
+  assert(old_size);
+  assert(new_size);
+
   if (immediate) [[likely]] {
+    assert(arena.offset <= arena.size);
+
     const auto remaining_size = arena.size - arena.offset;
+    if (remaining_size == 0) return nullptr;
 
     auto memory = arena.memory + arena.offset;
     arena.offset += new_size;
@@ -86,9 +95,11 @@ static u8 * arena_grow (Memory_Arena &arena, void *address, usize old_size, usiz
   return new_region;
 }
 
+
 static u8 * allocator_dispatch (Memory_Arena &arena, Allocation_Request request) {
   assert(arena.memory);
-  assert(arena.size > 0 && arena.offset < arena.size);
+  assert(arena.size > 0);
+  assert(arena.offset < arena.size);
   
   switch (request.type) {
     case Allocation_Request::Reserve: return arena_reserve(arena, request.size, request.alignment);
@@ -98,6 +109,7 @@ static u8 * allocator_dispatch (Memory_Arena &arena, Allocation_Request request)
       if (request.immediate) {
         auto edge = arena.memory + arena.offset;
         auto diff = usize(edge) - usize(request.address);
+        assert(diff > 0);
 
         arena.offset -= diff;
       }
@@ -140,7 +152,7 @@ struct Local_Arena {
   u8 reservation[Size];
   Memory_Arena arena;
 
-  constexpr Local_Arena (): arena { reservation, Size } {}
+  constexpr Local_Arena (): arena { reservation } {}
 
   operator Memory_Arena & () { return arena; }
 

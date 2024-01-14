@@ -3,6 +3,7 @@
 
 #include "anyfin/base.hpp"
 
+#include "anyfin/core/assert.hpp"
 #include "anyfin/core/allocator.hpp"
 #include "anyfin/core/memory.hpp"
 #include "anyfin/core/meta.hpp"
@@ -34,26 +35,27 @@ constexpr usize get_string_length (const char *value) {
 }
 
 struct String_View {
-  const char *value;
-  usize       length;
+  const char *value  = nullptr;
+  usize       length = 0;
 
   fin_forceinline
-  constexpr String_View (): value { nullptr }, length { 0 } {}
+  constexpr String_View () = default;
+
+  fin_forceinline
+  constexpr String_View (Byte_Pointer auto _value, usize _length)
+    : value { cast_bytes(_value) }, length { _length }
+  {
+    if (length) assert(value[length - 1] != '\0');
+  }
 
   template <usize N>
   fin_forceinline
   constexpr String_View (Byte_Array<N> auto (&literal)[N])
-    : value { cast_bytes(literal) }, length { N - 1 } {}
+    : String_View(cast_bytes(literal), N - 1) {}
 
   fin_forceinline
-  constexpr String_View (Byte_Pointer auto _value, usize _length)
-    : value { cast_bytes(_value) }, length { _length } {}
-
-  fin_forceinline
-  constexpr String_View (Byte_Pointer auto _value) {
-    this->value  = cast_bytes(_value);
-    this->length = get_string_length(this->value);
-  }
+  constexpr String_View (Byte_Pointer auto _value)
+    : String_View(_value, get_string_length(_value)) {}
 
   constexpr String_View (const String &string);
 
