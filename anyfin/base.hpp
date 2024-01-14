@@ -32,8 +32,6 @@ using psize = usize;
 
 #define fin_forceinline __attribute__((always_inline))
 
-inline void * operator new (usize, void *value) { return value; }
-
 #define defer auto tokenpaste(__deferred_lambda_call, __COUNTER__) = Fin::Base::deferrer << [&] ()
 
 namespace Fin::Base {

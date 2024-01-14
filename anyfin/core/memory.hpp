@@ -44,7 +44,21 @@ constexpr bool compare_bytes (const T *a, const T *b, const usize count) {
   return (__builtin_memcmp(a, b, sizeof(T) * count) == 0);
 }
 
-static const char * get_character_offset_reversed (const char *memory, const char value, const usize length) {
+static const char * get_character_offset (const char *memory, const usize length, const char value) {
+  if (length == 0) return nullptr;
+
+  auto end = memory + length;
+
+  auto cursor = memory;
+  while (cursor < end) {
+    if (*cursor == value) return cursor;
+    cursor += 1;
+  }
+
+  return nullptr;
+}
+
+static const char * get_character_offset_reversed (const char *memory, const usize length, const char value) {
   auto end = memory + length;
 
   auto cursor = memory;

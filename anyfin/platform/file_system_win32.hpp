@@ -165,6 +165,43 @@ static Result<void> set_working_directory (File_Path_View path) {
   return Core::Ok();
 }
 
+static Result<void> for_each_file (File_Path_View directory, Core::String_View extension, bool recursive, const Core::Invocable<bool, File_Path_View> auto &func) {
+  auto run_visitor = [extension, recursive, func] (this auto self, File_Path_View directory) -> Result<bool> {
+    Core::Local_Arena<1024> local;
+    auto arena = local.arena;
+
+    WIN32_FIND_DATAA data;
+
+    auto search_query  = concat_string(arena, directory, "\\*");
+    auto search_handle = FindFirstFile(search_query, &data);
+    if (search_handle == INVALID_HANDLE_VALUE) return get_system_error();
+    defer { FindClose(search_handle); };
+
+    do {
+      auto local = arena;
+      
+      const auto file_name = Core::String_View(Core::cast_bytes(data.cFileName));
+      if (compare_strings(file_name, ".") || compare_strings(file_name, "..")) continue;
+
+      if (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+        if (!recursive) continue;
+
+        auto [has_failed, error, should_continue] = self(concat_string(local, directory, "\\", file_name));
+        if (has_failed)       return Core::Error(move(error));
+        if (!should_continue) return false;
+      }
+      else {
+        if (!ends_with(file_name, extension)) continue;
+        if (!func(concat_string(local, directory, "\\", file_name))) return false;
+      }
+    } while (FindNextFileA(search_handle, &data) != 0);
+
+    return Core::Ok(true);
+  };
+
+  return run_visitor(directory).ignore();
+}
+
 static Result<Core::List<File_Path>> list_files (Core::Allocator auto &allocator, File_Path_View directory, Core::String_View extension, bool recursive) {
   Core::List<File_Path>   file_list { allocator };
   Core::Local_Arena<2048> arena;

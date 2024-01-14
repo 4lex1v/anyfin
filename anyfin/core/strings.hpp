@@ -228,76 +228,52 @@ constexpr bool compare_strings (String_View left, String_View right) {
   return compare_bytes<char>(left.value, right.value, left.length);
 }
 
-namespace iterator {
+struct split_string {
+  const char *cursor = nullptr;
+  const char *end    = nullptr;
 
-struct Split_Iterator {
-  String_View string;
-  char        separator;
+  char separator;
+  
+  constexpr split_string (String_View _string, char _separator)
+    : separator { _separator }
+  {
+    if (is_empty(_string)) return;
+      
+    cursor = _string.value;
+    end    = cursor + _string.length;
+  }
 
-  constexpr Split_Iterator (const String_View& view, char sep)
-    : string(view), separator(sep) {}
+  constexpr void for_each (const Invocable<void, String_View> auto &func) {
+    while (end_reached() == false) {
+      if (skip_consequtive_separators()) return;
 
-  struct Iterator {
-    const char* str_;
-    const usize length_;
-    const char* start_ = nullptr;
-    const char* current_ = nullptr;
-    char delim_;
-    bool end_;
+      auto next_position = get_character_offset(cursor, end - cursor, separator);
+      assert(next_position != cursor); // We've just skipped all separators, this wouldn't make any sense.
 
-    constexpr Iterator (const char* str, usize len, char delim, bool end = false)
-      : str_(str), length_(len), delim_(delim), end_(end)
-    {
-      if (!end) find_next();
+      if (next_position) {
+        func(String_View(cursor, next_position - cursor));
+
+        cursor = next_position;
+        continue;
+      }
+      
+      func(String_View(cursor, end - cursor));
+      
+      cursor = end;
+    }
+  }
+
+  constexpr bool skip_consequtive_separators () {
+    while (!end_reached()) {
+      if (*cursor != separator) return false;
+      cursor += 1;
     }
 
-    String_View operator * () const {
-      return {start_, static_cast<usize>(current_ - start_)};
-    }
+    return true;
+  }
 
-    Iterator& operator++() {
-      find_next();
-      return *this;
-    }
-
-    bool operator != (const Iterator& other) const {
-      return end_ != other.end_;
-    }
-
-    void find_next () {
-      if (current_ == nullptr) {
-        current_ = str_;
-        start_ = str_;
-      }
-      else if (current_ - str_ < length_) {
-        current_++;
-        start_ = current_;
-      }
-      else {
-        end_ = true;
-        return;
-      }
-
-      while (current_ - str_ < length_ && *current_ != delim_) {
-        current_++;
-      }
-
-      if (current_ - str_ == length_) {
-        end_ = true;
-      }
-    }
-  };
-
-  Iterator begin () const { return Iterator(string.value, string.length, separator); }
-  Iterator end   () const { return Iterator(string.value, string.length, separator, true); }
+  constexpr bool end_reached () { return cursor == end; }
 };
-
-constexpr Split_Iterator split (const String_View &string, const char separator) {
-  return Split_Iterator(string, separator);
-}
-
-};
-
 
 }
   

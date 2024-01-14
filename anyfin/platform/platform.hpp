@@ -33,15 +33,15 @@ static auto to_string (System_Error error, A &allocator) {
   Core::String_Builder builder { allocator };
   defer { alloc_destroy<A>(builder); };
 
-  builder += Core::String_View("System error: ");
+  builder += "System code: ";
   builder += to_string(error.error_code, allocator);
 
   if (!is_empty(error.details)) {
-    builder += Core::String_View("details: ");
+    builder += ". Details: ";
     builder += error.details;
   }
 
-  return build_string_with_separator(allocator, builder, ',');
+  return build_string(allocator, builder);
 }
 
 template <typename T>

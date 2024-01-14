@@ -99,9 +99,7 @@ struct Result {
   }
 
   Value_Type && take (String_View trap_message = "Attempt to access value of a failed result\n") {
-    if (this->tag.value != Tag::Success) [[unlikely]] trap(trap_message);
-    this->tag = Tag::Empty;
-    return move(this->value);
+    return take([trap_message] (auto _) { return trap_message; });
   }
 
   Value_Type&& operator * () && {
@@ -110,6 +108,17 @@ struct Result {
 
   constexpr void handle_value (const Invocable<void, const Value_Type &> auto &func) const {
     if (this->tag.value == Tag::Success) [[likely]] func(this->value);
+  }
+
+  constexpr Result<S, void> ignore (this Result<S, T> &&self, Callsite_Info callsite = {}) {
+    switch (self.tag.value) {
+      case Tag::Empty: return Core::Ok();
+      case Tag::Error: return Core::Error(move(self.status));
+      case Tag::Success: {
+        smart_destroy(self.value, callsite);
+        return Core::Ok();
+      }
+    }
   }
 
   template <typename To>
@@ -144,33 +153,6 @@ struct Result<S, void> {
 
   void expect (const Invocable<String_View, const Status_Type &> auto &func) {
     expect(func(this->status));
-  }
-};
-
-template <typename S>
-struct Result<S, bool> {
-  using Status_Type = S;
-  using Value_Type  = void;
-
-  Tag         tag;
-  Status_Type status;
-  bool        value;
-
-  constexpr Result (Error<S>&& error): tag { Tag::Error }, status { move(error.value) } {}
-  constexpr Result (Status_Type &&status): tag { Tag::Error }, status { move(status) } {}
-
-  constexpr Result (Ok<bool>&& ok): tag { Tag::Success }, value { ok.value } {}
-  constexpr Result (bool _value): tag { Tag::Success }, value { _value } {}
-
-  constexpr operator bool () const { return tag.value == Tag::Success; }
-
-  bool check (String_View message = "Failed result value") {
-    if (this->tag.value != Tag::Success) [[unlikely]] trap(message);
-    return value;
-  }
-
-  bool check (const Invocable<String_View, const Status_Type &> auto &func) {
-    return check(func(this->status));
   }
 };
 

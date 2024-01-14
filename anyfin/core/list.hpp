@@ -38,26 +38,26 @@ struct List {
   struct Iterator {
     Node *node;
 
-    Iterator (Node *_node): node { _node } {}
+    constexpr Iterator (Node *_node): node { _node } {}
 
-    bool operator != (const Iterator &other) const {
+    constexpr bool operator != (const Iterator &other) const {
       return this->node != other.node;
     }
 
-    Iterator& operator ++ () {
+    constexpr Iterator& operator ++ () {
       node = node->next;
       return *this;
     }
 
-    Value_Type&       operator * ()       { return node->value; }
-    const Value_Type& operator * () const { return node->value; }
+    constexpr Value_Type&       operator * ()       { return node->value; }
+    constexpr const Value_Type& operator * () const { return node->value; }
   };
 
-  Iterator begin () { return Iterator(first); } 
-  Iterator end   () { return Iterator(nullptr); }
+  constexpr Iterator begin () { return Iterator(first); } 
+  constexpr Iterator end   () { return Iterator(nullptr); }
 
-  const Iterator begin () const { return Iterator(first); } 
-  const Iterator end   () const { return Iterator(nullptr); }
+  constexpr const Iterator begin () const { return Iterator(first); } 
+  constexpr const Iterator end   () const { return Iterator(nullptr); }
 
   Option<Node *> find_node (const Invocable<bool, const T &> auto &pred) const {
     auto node = this->first;

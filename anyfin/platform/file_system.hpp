@@ -155,6 +155,8 @@ static Result<File_Path> get_working_directory (Core::Allocator auto &allocator)
 
 static Result<void> set_working_directory (File_Path_View path) ;
 
+static Result<void> for_each_file (File_Path_View directory, Core::String_View extension, bool recursive, const Core::Invocable<bool, File_Path_View> auto &func);
+
 static Result<Core::List<File_Path>> list_files (Core::Allocator auto &allocator, File_Path_View directory, Core::String_View extension = {}, bool recursive = false) ;
 
 static Result<void> copy_directory (File_Path_View from, File_Path_View to) ;
