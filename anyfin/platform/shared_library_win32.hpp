@@ -9,7 +9,7 @@ namespace Fin::Platform {
 
 static Result<Shared_Library *> load_shared_library (const File_Path &library_file_path) {
   auto handle = LoadLibrary(library_file_path.value);
-  if (handle == nullptr) return get_system_error();
+  if (handle == nullptr) return get_system_error(library_file_path.value);
 
   return reinterpret_cast<Shared_Library *>(handle);
 }

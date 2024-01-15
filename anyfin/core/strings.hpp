@@ -92,12 +92,17 @@ struct String {
 
   constexpr String () = default;
 
-  template <usize N>
-  constexpr String (Allocator auto &_allocator, Byte_Array<N> auto (&array)[N])
-    : allocator { _allocator }, value { cast_bytes(array) }, length { N - 1 } {}
-
   constexpr String (Allocator auto &_allocator, Byte_Pointer auto _value, const usize _length)
-    : allocator { _allocator }, value { cast_bytes(_value) }, length { _length } {}
+    : allocator { _allocator }, value { cast_bytes(_value) }, length { _length }
+  {
+    assert(value);
+    assert(length);
+    assert(value[length - 1] != '\0');
+  }
+
+  template <usize N>
+  constexpr String (Allocator auto &allocator, Byte_Array<N> auto (&array)[N])
+    : String(allocator, array, N - 1) {};
 
   constexpr String (const String &) = delete;
 

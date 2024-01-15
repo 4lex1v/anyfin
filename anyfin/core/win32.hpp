@@ -34,8 +34,8 @@ static u32 stdout_print (const char *message, usize length) {
    */
   FlushFileBuffers(stdout);
 
-#ifdef WIN32_DEBUG_OUTPUT_ENABLE
-  OutputDebugString(message.value);
+#ifdef DEV_BUILD
+  OutputDebugString(message);
 #endif
 
   return 0;

@@ -187,7 +187,7 @@ static Result<void> for_each_file (File_Path_View directory, Core::String_View e
         if (!recursive) continue;
 
         auto [has_failed, error, should_continue] = self(concat_string(local, directory, "\\", file_name));
-        if (has_failed)       return Core::Error(move(error));
+        if (has_failed)       return Core::Error(Core::move(error));
         if (!should_continue) return false;
       }
       else {
@@ -314,12 +314,13 @@ static Result<u64> get_file_id (const File &file) {
   return Core::Ok(*reinterpret_cast<u64 *>(id_info.FileId.Identifier));
 }
 
-static Result<void> write_buffer_to_file (File &file, Core::String_View bytes) {
+template <Core::Byte_Type T>
+static Result<void> write_buffer_to_file (File &file, Core::Slice<T> bytes) {
   DWORD total_bytes_written = 0;
-  while (total_bytes_written < bytes.length) {
+  while (total_bytes_written < bytes.count) {
     DWORD bytes_written = 0;
     if (!WriteFile(file.handle, bytes.value + total_bytes_written, 
-                   bytes.length - total_bytes_written, &bytes_written, nullptr)) {
+                   bytes.count - total_bytes_written, &bytes_written, nullptr)) {
       return get_system_error();
     }
 
@@ -332,6 +333,46 @@ static Result<void> write_buffer_to_file (File &file, Core::String_View bytes) {
   }
 
   return Core::Ok();
+}
+
+static Result<void> read_bytes_into_buffer (File &file, u8 *buffer, usize bytes_to_read) {
+  assert(buffer);
+  assert(bytes_to_read > 0);
+
+  usize offset = 0;
+  while (offset < bytes_to_read) {
+    DWORD bytes_read = 0;
+    if (!ReadFile(file.handle, buffer + offset, bytes_to_read - offset, &bytes_read, nullptr)) {
+      return get_system_error();
+    }
+
+    offset += bytes_read;
+  }
+
+  return Core::Ok();
+}
+
+static Result<Core::Array<u8>> get_file_content (Core::Allocator auto &allocator, File &file) {
+  fin_check(reset_file_cursor(file));
+
+  auto [has_failed, error, file_size] = get_file_size(file);
+  if (has_failed) return Core::Error(move(error));
+  if (!file_size) return Core::Ok(Core::Array<u8> {});
+
+  auto buffer = reserve_array<u8>(allocator, file_size, alignof(u8));
+
+  usize offset = 0;
+  while (offset < file_size) {
+    DWORD bytes_read = 0;
+    if (!ReadFile(file.handle, buffer.value + offset, file_size - offset, &bytes_read, NULL)) {
+      free(allocator, buffer.value, true);
+      return get_system_error();
+    }
+
+    offset += bytes_read;
+  }
+
+  return buffer;
 }
 
 static Result<void> reset_file_cursor (File &file) {
@@ -353,19 +394,16 @@ static Result<u64> get_last_update_timestamp (const File &file) {
 }
 
 static Result<File_Mapping> map_file_into_memory (const File &file) {
-  if (!get_file_size(file)) return File_Mapping {};
+  auto [has_failed, error, mapping_size] = get_file_size(file);
+  if (has_failed) return Core::Error(Core::move(error));
   
   auto handle = CreateFileMapping(file.handle, nullptr, PAGE_READONLY, 0, 0, nullptr);
-  if (handle == nullptr) return get_system_error();
+  if (!handle) return get_system_error();
 
   auto memory = MapViewOfFile(handle, FILE_MAP_READ, 0, 0, 0);
-  if (memory == nullptr) { CloseHandle(handle); return get_system_error(); }
-
-  auto [has_failed, error, mapping_size] = get_file_size(file);
-  if (!has_failed) {
-    UnmapViewOfFile(memory);
+  if (!memory) {
     CloseHandle(handle);
-    return Core::Error(error);
+    return get_system_error();
   }
 
   return File_Mapping {

@@ -78,13 +78,11 @@ struct Result {
   constexpr Result (Ok<T>&& ok): tag { Tag::Success }, value { move(ok.value) } {}
   constexpr Result (Value_Type &&value): tag { Tag::Success }, value { move(value) } {}
 
-  constexpr operator bool () const { return tag.value == Tag::Success; }
-
-  constexpr bool is_error (this auto &self) { return self.tag.value == Tag::Error; }
-  constexpr bool is_ok    (this auto &self) { return self.tag.value == Tag::Success; }
+  constexpr bool is_error (this auto &&self) { return self.tag.value == Tag::Error; }
+  constexpr bool is_ok    (this auto &&self) { return self.tag.value == Tag::Success; }
 
   Value_Type & get (const Invocable<void, const Status_Type &> auto &func) {
-    if (this->tag.value != Tag::Success) [[unlikely]] func(this->status);
+    if (!this->is_ok()) [[unlikely]] func(this->status);
     return this->value;
   }
 
@@ -93,7 +91,7 @@ struct Result {
   }
 
   Value_Type && take (const Invocable<String_View, const Status_Type &> auto &func) {
-    if (this->tag.value != Tag::Success) [[unlikely]] trap(func(this->status));
+    if (!this->is_ok()) [[unlikely]] trap(func(this->status));
     this->tag = Tag::Empty;
     return move(this->value);
   }
@@ -106,8 +104,13 @@ struct Result {
     return move(*this).take("Attempt to move a value from a failed result container");
   }
 
+  constexpr T && or_default (T _default = {}) {
+    if (!is_ok()) return move(_default);
+    return move(this->value);
+  }
+
   constexpr void handle_value (const Invocable<void, const Value_Type &> auto &func) const {
-    if (this->tag.value == Tag::Success) [[likely]] func(this->value);
+    if (this->is_ok()) [[likely]] func(this->value);
   }
 
   constexpr Result<S, void> ignore (this Result<S, T> &&self, Callsite_Info callsite = {}) {
@@ -145,7 +148,8 @@ struct Result<S, void> {
 
   constexpr Result (Ok<void>&& ok): tag { Tag::Success } {}
 
-  constexpr operator bool () const { return tag.value == Tag::Success; }
+  constexpr bool is_error (this auto &&self) { return self.tag.value == Tag::Error; }
+  constexpr bool is_ok    (this auto &&self) { return self.tag.value == Tag::Success; }
 
   void expect (String_View message = "Failed result value") {
     if (this->tag.value != Tag::Success) [[unlikely]] trap(message);
@@ -170,7 +174,7 @@ static void destroy (Result<S, T> &result, Callsite_Info callsite = {}) {
  */
 #define fin_check(RESULT)                                           \
   do {                                                              \
-    if (auto result = (RESULT); !result)                            \
+    if (auto result = (RESULT); result.is_error())                  \
       return ::Fin::Core::Error(::Fin::Core::move(result.status));  \
   } while (0)
 

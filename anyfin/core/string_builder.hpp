@@ -48,12 +48,12 @@ static String build_string (Allocator auto &allocator, const String_Builder &bui
   auto buffer = reserve(allocator, reservation_size);
 
   usize offset = 0;
-  for (auto section: builder.sections) {
+  builder.sections.for_each([&] (auto section) {
     copy_memory(buffer + offset, section.value, section.length);
     offset += section.length;
 
     if (use_separator) buffer[offset++] = separator;
-  }
+  });
 
   buffer[offset] = '\0';  
 

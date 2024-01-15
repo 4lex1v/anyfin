@@ -59,6 +59,10 @@ struct List {
   constexpr const Iterator begin () const { return Iterator(first); } 
   constexpr const Iterator end   () const { return Iterator(nullptr); }
 
+  constexpr void for_each (const Invocable<void, T &> auto &func) const {
+    for (auto node = first; node; node = node->next) func(node->value);
+  }
+
   Option<Node *> find_node (const Invocable<bool, const T &> auto &pred) const {
     auto node = this->first;
     while (node) {
@@ -72,8 +76,7 @@ struct List {
   Option<const T &> find (const Invocable<bool, const T &> auto &pred) const {
     auto node = find_node(pred);
     if (node) return Option(node.value);
-
-    return {};
+    return opt_none;
   }
 
   bool contains (const Invocable<bool, const T &> auto &pred) const {
@@ -112,7 +115,7 @@ template <typename T>
 using List_Value = typename List<T>::Value_Type;
 
 template <typename T>
-static void list_push (List<T> &list, List_Value<T> &&value) {
+static T & list_push (List<T> &list, List_Value<T> &&value) {
   using Node_Type = typename List<T>::Node;
 
   assert(list.allocator.value != nullptr);
@@ -131,12 +134,13 @@ static void list_push (List<T> &list, List_Value<T> &&value) {
   }
 
   list.count += 1;
+
+  return node->value;
 }
 
 template <typename T>
-static inline void list_push_copy (List<T> &list, const List_Value<T> &value) {
-  List_Value<T> copied = value;
-  list_push(list, move(copied));
+static T & list_push_copy (List<T> &list, List_Value<T> value) {
+  return list_push(list, move(value));
 }
 
 // template <typename T, typename P>

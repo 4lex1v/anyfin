@@ -3,6 +3,7 @@
 
 #include "anyfin/base.hpp"
 
+#include "anyfin/core/arrays.hpp"
 #include "anyfin/core/bit_mask.hpp"
 #include "anyfin/core/memory.hpp"
 #include "anyfin/core/meta.hpp"
@@ -23,34 +24,80 @@ constexpr Core::String_View get_object_extension();
 using File_Path      = Core::String;
 using File_Path_View = Core::String_View;
 
+// /*
+//   Construct a platform-dependent file path.
+
+//   Path separator is platform-dependent, i.e for Windows it's \, while for Unix systems - /.
+//  */
+// template <Core::Iterable<Core::String_View> I>
+// /*
+//   To avoid compiler's confusion in cases like make_file_path(arena, "value"), since technically we can
+//   iterate the string literal, we reject this specific declaration for such cases.
+//  */
+// requires (!Core::is_string_literal<I>)
+// static File_Path make_file_path (Core::Allocator auto &allocator, const I &segments) {
+//   assert(!is_empty(segments));
+
+//   char *buffer = nullptr;
+//   usize length = 0;
+  
+//   for (auto segment: segments) {
+//     auto reservation_size = segment.length + 1;
+
+//     auto memory = grow(allocator, &buffer, length, reservation_size, buffer != nullptr, alignof(char));
+//     ensure_msg(memory, "Provided allocator is out of available memory");
+
+//     Core::copy_memory(reinterpret_cast<char*>(memory), segment.value, segment.length);
+//     memory[segment.length] = get_path_separator();
+
+//     length += reservation_size;
+//   }
+
+//   /*
+//     The last path separator would be replace with a 0 to terminate the string with a null-term.
+//     but the length should also be decremented to not include it.
+//   */
+//   buffer[--length] = '\0';
+
+// #ifdef PLATFORM_WIN32
+//   for (usize idx = 0; idx < length; idx++) {
+//     if (buffer[idx] == '/') buffer[idx] = '\\';
+//   }
+// #endif
+
+//   return File_Path(allocator, buffer, length);
+// }
+
+// /*
+//   Alternative API for a more convenient invocation of `make_file_path` using multiple segments.
+//   Each segment must be representable as a string.
+//  */
+// static File_Path make_file_path (Core::Allocator auto &allocator, Core::String_View segment, Core::Convertible_To<Core::String_View> auto&&... segments) {
+//   Core::String_View string_segments [] { segment, segments... };
+//   return make_file_path(allocator, string_segments);
+// }
+
 /*
   Construct a platform-dependent file path.
 
   Path separator is platform-dependent, i.e for Windows it's \, while for Unix systems - /.
  */
-template <Core::Iterable<Core::String_View> I>
-/*
-  To avoid compiler's confusion in cases like make_file_path(arena, "value"), since technically we can
-  iterate the string literal, we reject this specific declaration for such cases.
- */
-requires (!Core::is_string_literal<I>)
-static File_Path make_file_path (Core::Allocator auto &allocator, const I &segments) {
-  assert(!is_empty(segments));
-
+static File_Path make_file_path (Core::Allocator auto &allocator, Core::Convertible_To<Core::String_View> auto&&... segments) {
   char *buffer = nullptr;
   usize length = 0;
-  
-  for (auto segment: segments) {
+
+  const auto push_segment = [&] (Core::String_View segment) {
     auto reservation_size = segment.length + 1;
 
     auto memory = grow(allocator, &buffer, length, reservation_size, buffer != nullptr, alignof(char));
-    ensure_msg(memory, "Provided allocator is out of available memory");
 
-    Core::copy_memory(reinterpret_cast<char*>(memory), segment.value, segment.length);
+    Core::copy_memory(memory, segment.value, segment.length);
     memory[segment.length] = get_path_separator();
 
     length += reservation_size;
-  }
+  };
+
+  (push_segment(segments), ...);
 
   /*
     The last path separator would be replace with a 0 to terminate the string with a null-term.
@@ -65,15 +112,6 @@ static File_Path make_file_path (Core::Allocator auto &allocator, const I &segme
 #endif
 
   return File_Path(allocator, buffer, length);
-}
-
-/*
-  Alternative API for a more convenient invocation of `make_file_path` using multiple segments.
-  Each segment must be representable as a string.
- */
-static File_Path make_file_path (Core::Allocator auto &allocator, Core::String_View segment, Core::Convertible_To<Core::String_View> auto&&... segments) {
-  Core::String_View string_segments [] { segment, segments... };
-  return make_file_path(allocator, string_segments);
 }
 
 enum struct Resource_Type { File, Directory };
@@ -94,8 +132,20 @@ static Result<void> create_file (File_Path_View path, Core::Bit_Mask<File_System
   return create_resource(path, Resource_Type::File, flags);
 }
 
+static void create_file (Core::Allocator auto &allocator, File_Path_View path, Core::Bit_Mask<File_System_Flags> flags = {}) {
+  create_file(path).expect([&] (auto error) -> Core::String_View {
+    return concat_string(allocator, "Couldn't create file ", path, " due to a system error: ", error, "\n");
+  });
+}
+
 static Result<void> create_directory (File_Path_View path, Core::Bit_Mask<File_System_Flags> flags = {}) {
   return create_resource(path, Resource_Type::Directory, flags);
+}
+
+static void create_directory (Core::Allocator auto &allocator, File_Path_View path, Core::Bit_Mask<File_System_Flags> flags = {}) {
+  create_directory(path).expect([&](auto error) -> Core::String_View {
+    return concat_string(allocator, "Couldn't create directory ", path, " due to a system error: ", error, "\n");
+  });
 }
 
 /*
@@ -111,11 +161,23 @@ static Result<bool> check_file_exists (File_Path_View path) {
   return check_resource_exists(path, Resource_Type::File);
 }
 
+static bool check_file_exists (Core::Allocator auto &allocator, File_Path_View path) {
+  return check_file_exists(path).take([&] (auto error) -> Core::String_View {
+    return concat_string(allocator, "Path ", path, " validation has failed due to a system error: ", error);
+  });
+}
+
 /*
   Check if the provided path corresponds to an existing directory on the file system.
  */
 static Result<bool> check_directory_exists (File_Path_View path) {
   return check_resource_exists(path, Resource_Type::Directory);
+}
+
+static bool check_directory_exists (Core::Allocator auto &allocator, File_Path_View path) {
+  return check_directory_exists(path).take([&] (auto error) -> Core::String_View {
+    return concat_string(allocator, "Path ", path, " validation has failed due to a system error: ", error);
+  });
 }
 
 /*
@@ -168,6 +230,13 @@ struct File {
 
 static Result<File> open_file (File_Path &&path, Core::Bit_Mask<File_System_Flags> flags = {}) ;
 
+static File open_file (Core::Allocator auto &allocator, File_Path &&path, Core::Bit_Mask<File_System_Flags> flags = {}) {
+  Core::String_View path_ref { path };
+  return open_file(move(path), flags).take([&] (auto error) -> Core::String_View {
+    return concat_string(allocator, "Couldn't open file ", path_ref, " due to a system error: ", error, "\n");
+  });
+}
+
 static Result<void> close_file (File &file) ;
 
 static Result<u64> get_file_size (const File &file) ; 
@@ -175,7 +244,12 @@ static Result<u64> get_file_size (const File &file) ;
 // TODO: Fix this. On Windows the unique id is at least 128 bytes?
 static Result<u64> get_file_id (const File &file) ;
 
-static Result<void> write_buffer_to_file (File &file, Core::String_View bytes) ;
+template <Core::Byte_Type T>
+static Result<void> write_buffer_to_file (File &file, Core::Slice<T> bytes) ;
+
+static Result<void> read_bytes_into_buffer (File &file, u8 *buffer, usize bytes_to_read);
+
+static Result<Core::Array<u8>> get_file_content (Core::Allocator auto &allocator, File &file);
 
 static Result<void> reset_file_cursor (File &file) ;
 

@@ -3,6 +3,7 @@
 
 #include "anyfin/base.hpp"
 
+#include "anyfin/core/assert.hpp"
 #include "anyfin/core/callsite.hpp"
 #include "anyfin/core/meta.hpp"
 
@@ -41,7 +42,9 @@ concept Allocator = requires (A &alloc, Allocation_Request request) {
 template <typename T = char>
 fin_forceinline
 static T * reserve (Allocator auto &allocator, const usize count = 1, const usize alignment = alignof(T), const Callsite_Info info = {}) {
-  return reinterpret_cast<T*>(allocator_dispatch(allocator, Allocation_Request(sizeof(T) * count, alignment, info)));
+  auto memory = allocator_dispatch(allocator, Allocation_Request(sizeof(T) * count, alignment, info));
+  ensure_msg(memory, "Provided allocator is out of available memory");
+  return reinterpret_cast<T*>(memory);
 }
 
 /*
@@ -66,6 +69,7 @@ static T * grow (
   auto memory =
     reinterpret_cast<T *>(
       allocator_dispatch(allocator, Allocation_Request(*address, old_size, new_size, immediate, alignment, info)));
+  ensure_msg(memory, "Provided allocator is out of available memory");
 
   if (!*address && old_size == 0) [[unlikely]] *address = memory;
   return memory;

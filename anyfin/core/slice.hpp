@@ -9,7 +9,7 @@ namespace Fin::Core {
 
 template <typename T>
 struct Slice {
-  T *elements = nullptr;
+  T *value = nullptr;
   usize count = 0;
 
   constexpr Slice () = default;
@@ -18,23 +18,23 @@ struct Slice {
   constexpr Slice (T (&data)[N])
     : Slice(data, N) {}
   
-  constexpr Slice (T *_elements, usize _count)
-    : elements { _elements }, count { _count } {}
+  constexpr Slice (T *_value, usize _count)
+    : value { _value }, count { _count } {}
 
-  constexpr operator bool (this auto self) { return self.elements && self.count; }
+  constexpr operator bool (this auto self) { return self.value && self.count; }
 
-  constexpr decltype(auto) operator [] (this auto &&self, usize offset) { return self.elements[offset]; }
-  constexpr decltype(auto) operator *  (this auto &&self)               { return *self.elements; }
+  constexpr decltype(auto) operator [] (this auto &&self, usize offset) { return self.value[offset]; }
+  constexpr decltype(auto) operator *  (this auto &&self)               { return *self.value; }
 
   constexpr Slice<T> operator + (this auto self, usize offset) {
     assert(offset <= self.count);
-    return Slice(self.elements + offset, self.count - offset);
+    return Slice(self.value + offset, self.count - offset);
   }
 
   constexpr Slice<T>& operator += (this Slice<T> &self, usize offset) {
     assert(offset <= self.count);
 
-    self.elements += offset;
+    self.value += offset;
     self.count    -= offset;
 
     return self;
@@ -42,8 +42,8 @@ struct Slice {
 
   constexpr Slice<T> operator ++ (this Slice<T> &self, int) { return (self += 1); }
 
-  constexpr decltype(auto) begin (this auto self) { return self.elements; }
-  constexpr decltype(auto) end   (this auto self) { return self.elements + self.count; }
+  constexpr decltype(auto) begin (this auto self) { return self.value; }
+  constexpr decltype(auto) end   (this auto self) { return self.value + self.count; }
 };
 
 template <typename T>
