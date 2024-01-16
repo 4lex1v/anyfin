@@ -144,7 +144,10 @@ static T * get_memory_at_current_offset (Memory_Arena &arena, const usize alignm
 }
 
 static Memory_Arena make_sub_arena (Memory_Arena &arena, const usize size, Callsite_Info callsite = {}) {
-  return Memory_Arena(reserve<u8>(arena, size, alignof(void *), callsite), size);
+  auto reservation = reserve<u8>(arena, size, alignof(void *), callsite);
+  assert(reservation != nullptr);
+
+  return Memory_Arena(reservation, size);
 }
 
 template <usize Size>

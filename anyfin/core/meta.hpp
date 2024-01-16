@@ -64,12 +64,18 @@ template <typename T> using raw_type   = typename internals::Raw_Type<T>::type;
 template <typename T> using ref_type = T&;
 
 template <typename T>
+fin_forceinline
 constexpr remove_ref<T> && move (T &&value) {
   return static_cast<remove_ref<T> &&>(value);
 }
 
-template <typename T> constexpr T&& forward (remove_ref<T>  &value) { return static_cast<T &&>(value); }
-template <typename T> constexpr T&& forward (remove_ref<T> &&value) { return static_cast<T &&>(value); }
+template <typename T>
+fin_forceinline
+constexpr T&& forward (remove_ref<T>  &value) { return static_cast<T &&>(value); }
+
+template <typename T>
+fin_forceinline
+constexpr T&& forward (remove_ref<T> &&value) { return static_cast<T &&>(value); }
 
 template <typename A, typename B> using copy_value_category = internals::Copy_Value_Category<A, B>::type;
 

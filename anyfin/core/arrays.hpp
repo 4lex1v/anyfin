@@ -32,6 +32,9 @@ struct Array {
 
   constexpr decltype(auto) begin (this auto &&self) { return self.values; }
   constexpr decltype(auto) end   (this auto &&self) { return self.values + self.count; }
+
+  fin_forceinline
+  constexpr operator Slice<T> (this auto &&self) { return Slice(self.values, self.count); }
 };
 
 template <typename T>

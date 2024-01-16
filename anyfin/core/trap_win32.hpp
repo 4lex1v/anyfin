@@ -11,6 +11,10 @@ static void set_crash_handler (Crash_Handler handler) {
 }
 
 static void trap (const char *message) {
+#ifdef DEV_BUILD
+  __builtin_debugtrap();
+#endif
+
   auto message_length = 0;
   while (message[message_length])
     message_length += 1;

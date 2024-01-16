@@ -34,10 +34,6 @@ namespace Fin::Core {
  */
 [[noreturn]]
 static void assert_hook (const char *expr, const char *message, const Callsite_Info callsite = {}) {
-#ifdef DEV_BUILD
-  __builtin_debugtrap();
-#endif
-
   if (!expr) __builtin_trap();
 
   const auto get_length = [] (const char *value) -> usize {

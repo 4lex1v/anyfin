@@ -59,6 +59,7 @@ struct List {
   constexpr const Iterator begin () const { return Iterator(first); } 
   constexpr const Iterator end   () const { return Iterator(nullptr); }
 
+  fin_forceinline
   constexpr void for_each (const Invocable<void, T &> auto &func) const {
     for (auto node = first; node; node = node->next) func(node->value);
   }

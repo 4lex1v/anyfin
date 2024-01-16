@@ -24,62 +24,8 @@ constexpr Core::String_View get_object_extension();
 using File_Path      = Core::String;
 using File_Path_View = Core::String_View;
 
-// /*
-//   Construct a platform-dependent file path.
-
-//   Path separator is platform-dependent, i.e for Windows it's \, while for Unix systems - /.
-//  */
-// template <Core::Iterable<Core::String_View> I>
-// /*
-//   To avoid compiler's confusion in cases like make_file_path(arena, "value"), since technically we can
-//   iterate the string literal, we reject this specific declaration for such cases.
-//  */
-// requires (!Core::is_string_literal<I>)
-// static File_Path make_file_path (Core::Allocator auto &allocator, const I &segments) {
-//   assert(!is_empty(segments));
-
-//   char *buffer = nullptr;
-//   usize length = 0;
-  
-//   for (auto segment: segments) {
-//     auto reservation_size = segment.length + 1;
-
-//     auto memory = grow(allocator, &buffer, length, reservation_size, buffer != nullptr, alignof(char));
-//     ensure_msg(memory, "Provided allocator is out of available memory");
-
-//     Core::copy_memory(reinterpret_cast<char*>(memory), segment.value, segment.length);
-//     memory[segment.length] = get_path_separator();
-
-//     length += reservation_size;
-//   }
-
-//   /*
-//     The last path separator would be replace with a 0 to terminate the string with a null-term.
-//     but the length should also be decremented to not include it.
-//   */
-//   buffer[--length] = '\0';
-
-// #ifdef PLATFORM_WIN32
-//   for (usize idx = 0; idx < length; idx++) {
-//     if (buffer[idx] == '/') buffer[idx] = '\\';
-//   }
-// #endif
-
-//   return File_Path(allocator, buffer, length);
-// }
-
-// /*
-//   Alternative API for a more convenient invocation of `make_file_path` using multiple segments.
-//   Each segment must be representable as a string.
-//  */
-// static File_Path make_file_path (Core::Allocator auto &allocator, Core::String_View segment, Core::Convertible_To<Core::String_View> auto&&... segments) {
-//   Core::String_View string_segments [] { segment, segments... };
-//   return make_file_path(allocator, string_segments);
-// }
-
 /*
   Construct a platform-dependent file path.
-
   Path separator is platform-dependent, i.e for Windows it's \, while for Unix systems - /.
  */
 static File_Path make_file_path (Core::Allocator auto &allocator, Core::Convertible_To<Core::String_View> auto&&... segments) {
@@ -134,7 +80,7 @@ static Result<void> create_file (File_Path_View path, Core::Bit_Mask<File_System
 
 static void create_file (Core::Allocator auto &allocator, File_Path_View path, Core::Bit_Mask<File_System_Flags> flags = {}) {
   create_file(path).expect([&] (auto error) -> Core::String_View {
-    return concat_string(allocator, "Couldn't create file ", path, " due to a system error: ", error, "\n");
+    return concat_string(allocator, "ERROR: Couldn't create file ", path, " due to a system error: ", error, "\n");
   });
 }
 
@@ -144,7 +90,7 @@ static Result<void> create_directory (File_Path_View path, Core::Bit_Mask<File_S
 
 static void create_directory (Core::Allocator auto &allocator, File_Path_View path, Core::Bit_Mask<File_System_Flags> flags = {}) {
   create_directory(path).expect([&](auto error) -> Core::String_View {
-    return concat_string(allocator, "Couldn't create directory ", path, " due to a system error: ", error, "\n");
+    return concat_string(allocator, "ERROR: Couldn't create directory ", path, " due to a system error: ", error, "\n");
   });
 }
 
@@ -163,7 +109,7 @@ static Result<bool> check_file_exists (File_Path_View path) {
 
 static bool check_file_exists (Core::Allocator auto &allocator, File_Path_View path) {
   return check_file_exists(path).take([&] (auto error) -> Core::String_View {
-    return concat_string(allocator, "Path ", path, " validation has failed due to a system error: ", error);
+    return concat_string(allocator, "ERROR: Path ", path, " validation has failed due to a system error: ", error);
   });
 }
 
@@ -176,7 +122,7 @@ static Result<bool> check_directory_exists (File_Path_View path) {
 
 static bool check_directory_exists (Core::Allocator auto &allocator, File_Path_View path) {
   return check_directory_exists(path).take([&] (auto error) -> Core::String_View {
-    return concat_string(allocator, "Path ", path, " validation has failed due to a system error: ", error);
+    return concat_string(allocator, "ERROR: Path ", path, " validation has failed due to a system error: ", error);
   });
 }
 
@@ -207,53 +153,58 @@ static Result<void> delete_directory (File_Path_View path) {
   resource exists on the file system or not. If it's a file and has an extension, the extension
   would be included.
  */
-static Result<Core::String> get_resource_name (Core::Allocator auto &allocator, File_Path_View path) ;
+static Result<Core::String> get_resource_name (Core::Allocator auto &allocator, File_Path_View path);
 
-static Result<File_Path> get_absolute_path (Core::Allocator auto &allocator, File_Path_View path) ;
+static Result<File_Path> get_absolute_path (Core::Allocator auto &allocator, File_Path_View path);
 
-static Result<Core::Option<File_Path>> get_parent_folder_path (Core::Allocator auto &allocator, File_Path_View file) ;
+static Result<File_Path> get_folder_path (Core::Allocator auto &allocator, File_Path_View file);
 
-static Result<File_Path> get_working_directory (Core::Allocator auto &allocator) ;
+static Result<File_Path> get_working_directory (Core::Allocator auto &allocator);
 
-static Result<void> set_working_directory (File_Path_View path) ;
+static Result<void> set_working_directory (File_Path_View path);
 
 static Result<void> for_each_file (File_Path_View directory, Core::String_View extension, bool recursive, const Core::Invocable<bool, File_Path_View> auto &func);
 
-static Result<Core::List<File_Path>> list_files (Core::Allocator auto &allocator, File_Path_View directory, Core::String_View extension = {}, bool recursive = false) ;
+static Result<Core::List<File_Path>> list_files (Core::Allocator auto &allocator, File_Path_View directory, Core::String_View extension = {}, bool recursive = false);
 
-static Result<void> copy_directory (File_Path_View from, File_Path_View to) ;
+static Result<void> copy_directory (File_Path_View from, File_Path_View to);
 
 struct File {
   void *handle;
   File_Path path;
 };
 
-static Result<File> open_file (File_Path &&path, Core::Bit_Mask<File_System_Flags> flags = {}) ;
+static Result<File> open_file (File_Path &&path, Core::Bit_Mask<File_System_Flags> flags = {});
 
 static File open_file (Core::Allocator auto &allocator, File_Path &&path, Core::Bit_Mask<File_System_Flags> flags = {}) {
   Core::String_View path_ref { path };
   return open_file(move(path), flags).take([&] (auto error) -> Core::String_View {
-    return concat_string(allocator, "Couldn't open file ", path_ref, " due to a system error: ", error, "\n");
+    return concat_string(allocator, "ERROR: Couldn't open file ", path_ref, " due to a system error: ", error, "\n");
   });
 }
 
-static Result<void> close_file (File &file) ;
+static Result<void> close_file (File &file);
 
-static Result<u64> get_file_size (const File &file) ; 
+static Result<u64> get_file_size (const File &file); 
 
-// TODO: Fix this. On Windows the unique id is at least 128 bytes?
-static Result<u64> get_file_id (const File &file) ;
+static Result<u64> get_file_id (const File &file);
+
+static u64 get_file_id (Core::Allocator auto &allocator, const File &file) {
+  return get_file_id(file).take([&] (auto error) -> Core::String_View {
+    return concat_string(allocator, "ERROR: Dependencies scanner has failed to retrieve file's ", file.path, " id due to a system error: ", error);
+  });
+}
 
 template <Core::Byte_Type T>
-static Result<void> write_buffer_to_file (File &file, Core::Slice<T> bytes) ;
+static Result<void> write_buffer_to_file (File &file, Core::Slice<T> bytes);
 
 static Result<void> read_bytes_into_buffer (File &file, u8 *buffer, usize bytes_to_read);
 
 static Result<Core::Array<u8>> get_file_content (Core::Allocator auto &allocator, File &file);
 
-static Result<void> reset_file_cursor (File &file) ;
+static Result<void> reset_file_cursor (File &file);
 
-static Result<u64> get_last_update_timestamp (const File &file) ;
+static Result<u64> get_last_update_timestamp (const File &file);
 
 struct File_Mapping {
   void *handle;
@@ -262,9 +213,15 @@ struct File_Mapping {
   usize size;
 };
 
-static Result<File_Mapping> map_file_into_memory (const File &file) ;
+static Result<File_Mapping> map_file_into_memory (const File &file);
 
-static Result<void> unmap_file (File_Mapping &mapping) ;
+static File_Mapping map_file_into_memory (Core::Allocator auto &allocator, const File &file) {
+  return map_file_into_memory(file).take([&] (auto error) -> Core::String_View {
+    return concat_string(allocator, "ERROR: Failed to map file ", file.path, " into memory due to a system error: ", error);
+  });
+}
+
+static Result<void> unmap_file (File_Mapping &mapping);
 
 }
 

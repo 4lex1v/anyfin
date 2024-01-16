@@ -3,6 +3,7 @@
 
 #include "anyfin/base.hpp"
 
+#include "anyfin/core/assert.hpp"
 #include "anyfin/core/meta.hpp" // for the is_pointer check is align function
 
 extern "C" {
@@ -45,6 +46,8 @@ constexpr bool compare_bytes (const T *a, const T *b, const usize count) {
 }
 
 static const char * get_character_offset (const char *memory, const usize length, const char value) {
+  assert(memory);
+
   if (length == 0) return nullptr;
 
   auto end = memory + length;
@@ -59,14 +62,10 @@ static const char * get_character_offset (const char *memory, const usize length
 }
 
 static const char * get_character_offset_reversed (const char *memory, const usize length, const char value) {
-  auto end = memory + length;
-
-  auto cursor = memory;
-  while (cursor < end) {
+  if (!memory || length == 0) [[unlikely]] return nullptr;
+  for (auto cursor = (memory + length - 1); cursor >= memory; cursor--) {
     if (*cursor == value) return cursor;
-    cursor += 1;
   }
-
   return nullptr;
 }
 

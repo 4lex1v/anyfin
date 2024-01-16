@@ -13,26 +13,36 @@ struct String_Builder {
   List<String_View> sections;
   usize length = 0;
 
-  String_Builder (Allocator auto &_allocator)
+  constexpr String_Builder (Allocator auto &_allocator)
     : sections { _allocator } {}
 
-  void add (const String_View &value) {
-    if (value.length == 0) return;
+  constexpr auto& add (this auto &self, String_View value) {
+    if (value.length == 0) return self;
 
-    list_push_copy(this->sections, value);
+    list_push(self.sections, move(value));
+    self.length += value.length;
 
-    this->length += value.length;
+    return self;
   }
 
-  void add (const Iterable<String_View> auto &parts) { for (auto value: parts)  add(value); }
-  void add (const Iterable<String>      auto &parts) { for (auto &value: parts) add(value); }
+  constexpr auto& operator += (this String_Builder &self, const String_View &value) { self.add(value); return self; }
+  constexpr auto& operator += (this String_Builder &self, const String      &value) { self.add(value); return self; }
+  constexpr auto& operator += (this String_Builder &self, const char        *value) { self.add(value); return self; }
 
-  void operator += (const Iterable<String_View> auto &values) { add(values); }
-  void operator += (const Iterable<String>      auto &values) { add(values); }
+  constexpr auto& operator += (this String_Builder &self, const Iterable<String_View> auto &values) { for (auto &value: values) self.add(value); return self; }
+  constexpr auto& operator += (this String_Builder &self, const Iterable<String>      auto &values) { for (auto &value: values) self.add(value); return self; }
 
-  void operator += (const String_View &value) { add(value); }
-  void operator += (const String &string)     { add(string); }
-  void operator += (const char *value)        { add(String_View(value)); }
+  constexpr auto& add (this String_Builder &self, Allocator auto &allocator, Printable auto &&... args) {
+    const auto print = [&] (auto &&arg) {
+      if constexpr (Convertible_To<decltype(arg), String_View>)
+        return static_cast<String_View>(arg);
+      else return to_string(arg, allocator);
+    };
+
+    (self.add(print(args)), ...);
+
+    return self;
+  }
 };
 
 static void destroy (String_Builder &builder, Callsite_Info callsite = {}) {

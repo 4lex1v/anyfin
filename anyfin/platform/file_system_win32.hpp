@@ -135,17 +135,29 @@ static Result<File_Path> get_absolute_path (Core::Allocator auto &allocator, Fil
   return Core::Ok(File_Path(allocator, buffer, full_path_name_length - 1));
 }
 
-static Result<Core::Option<File_Path>> get_parent_folder_path (Core::Allocator auto &allocator, File_Path_View _path) {
-  auto [tag, error, path] = get_absolute_path(allocator, _path);
-  if (!tag) return Core::move(error);
+static bool is_absolute_path (File_Path_View path) {
+  assert(!is_empty(path));
 
-  for (usize idx = path.length; idx > 0; idx--) {
-    if (path.value[idx] == '/' || path.value[idx] == '\\') {
-      return Core::Option(Core::String::copy(allocator, path.value, idx));
-    }
+  if (path[0] == '.') return false;
+
+  if (path.length > 2 && path[1] == ':'  && path[2] == '\\') return true;
+  if (path.length > 1 && path[0] == '\\' && path[1] == '\\') return true;
+
+  return false;
+}
+
+static Result<File_Path> get_folder_path (Core::Allocator auto &allocator, File_Path_View path) {
+  assert(!is_empty(path));
+
+  const char *last_separator = path.value + path.length - 1;
+  while (last_separator > path.value) {
+    if (*last_separator == '\\' || *last_separator == '/') break;
+    last_separator -= 1;
   }
-  
-  return Core::Option<File_Path> {};
+
+  if (last_separator == path.value) return get_working_directory(allocator);
+
+  return get_absolute_path(allocator, File_Path_View(path.value, last_separator - path.value));
 }
 
 static Result<File_Path> get_working_directory (Core::Allocator auto &allocator) {
