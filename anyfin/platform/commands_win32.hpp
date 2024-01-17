@@ -44,13 +44,16 @@ static Result<System_Command_Status> run_system_command (Core::Allocator auto &a
       if (!PeekNamedPipe(child_stdout_read, NULL, 0, NULL, &bytes_available, NULL)) {
         auto error_code = get_system_error_code();
         if (error_code != ERROR_BROKEN_PIPE) {
-          if (output_buffer) free(allocator, output_buffer, true);
+          if (output_buffer) free(allocator, output_buffer);
           return get_system_error();
         }
       }
 
       if (bytes_available == 0) {
-        GetExitCodeProcess(process.hProcess, &exit_code);
+        if (!GetExitCodeProcess(process.hProcess, &exit_code)) {
+          if (output_buffer) free(allocator, output_buffer);
+          return get_system_error();
+        }
         if (exit_code != STILL_ACTIVE) break;
         continue;
       }
@@ -71,7 +74,7 @@ static Result<System_Command_Status> run_system_command (Core::Allocator auto &a
           by the BROKEN_PIPE status, we can treat that as EOF.
          */
         if (error_code != ERROR_BROKEN_PIPE) {
-          if (output_buffer) free(allocator, output_buffer, true);
+          if (output_buffer) free(allocator, output_buffer);
           return get_system_error();
         }
       }

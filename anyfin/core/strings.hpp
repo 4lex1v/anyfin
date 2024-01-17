@@ -50,7 +50,7 @@ struct String_View {
 
   template <usize N>
   fin_forceinline
-  constexpr String_View (Byte_Array<N> auto (&literal)[N])
+  constexpr String_View (const Byte_Array<N> auto (&literal)[N])
     : String_View(cast_bytes(literal), N - 1) {}
 
   fin_forceinline
@@ -74,6 +74,18 @@ struct String_View {
 
   constexpr auto operator + (this auto self, Integral auto offset) {
     return String_View(self.value + offset, self.length - offset);
+  }
+
+  constexpr bool operator == (String_View other) const {
+    if (this->length != other.length) return false;
+    if (!this->value || !other.value) return this->value == other.value;
+
+    return compare_bytes<char>(this->value, other.value, this->length);
+  }
+
+  template <usize N>
+  constexpr bool operator == (const char (&value)[N]) const {
+    return *this == String_View(value);
   }
 
   constexpr const char * begin (this auto self) { return self.value; }
@@ -140,6 +152,10 @@ struct String {
   constexpr operator const char * () const { return this->value; }
 
   constexpr auto operator [] (this auto &&self, usize idx) { return self.value[idx]; }
+
+  constexpr bool operator == (this const auto &self, const String &other) {
+    return String_View(self) == other;
+  }
 
   static String copy (Allocator auto &allocator, String_View view, Callsite_Info callsite = {}) {
     if (is_empty(view)) return {};
@@ -228,12 +244,7 @@ constexpr bool has_substring (String_View text, String_View value) {
   return false;
 }
 
-constexpr bool compare_strings (String_View left, String_View right) {
-  if (left.length != right.length) return false;
-  if (!left.value || !right.value) return left.value == right.value;
-
-  return compare_bytes<char>(left.value, right.value, left.length);
-}
+constexpr bool compare_strings (String_View left, String_View right) { return left == right; }
 
 struct split_string {
   const char *cursor = nullptr;

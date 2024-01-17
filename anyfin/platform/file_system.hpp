@@ -178,7 +178,7 @@ static Result<File> open_file (File_Path &&path, Core::Bit_Mask<File_System_Flag
 
 static File open_file (Core::Allocator auto &allocator, File_Path &&path, Core::Bit_Mask<File_System_Flags> flags = {}) {
   Core::String_View path_ref { path };
-  return open_file(move(path), flags).take([&] (auto error) -> Core::String_View {
+  return open_file(Core::move(path), flags).take([&] (auto error) -> Core::String_View {
     return concat_string(allocator, "ERROR: Couldn't open file ", path_ref, " due to a system error: ", error, "\n");
   });
 }

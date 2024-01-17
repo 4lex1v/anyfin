@@ -23,6 +23,11 @@ static void set_crash_handler (Crash_Handler handler);
  */
 [[noreturn]] static void trap (const char *message);
 
+/*
+  Terminates the executing process with a provided error message.
+ */
+[[noreturn]] static void trap (const char *message, const usize message_length);
+
 }
 
 #ifndef TRAP_HPP_IMPL

@@ -32,7 +32,7 @@ static Result<void> create_resource (File_Path_View path, const Resource_Type re
       return Core::Ok();
     }
     case Resource_Type::Directory: {
-      if (CreateDirectory(path, NULL))            return Core::Ok();
+      if (CreateDirectory(path, nullptr))         return Core::Ok();
       if (GetLastError() == ERROR_ALREADY_EXISTS) return Core::Ok();
 
       return Core::Error(get_system_error()); 
@@ -71,35 +71,43 @@ static Result<void> delete_resource (File_Path_View path, Resource_Type resource
       auto error_code = GetLastError();
       if (error_code == ERROR_FILE_NOT_FOUND) return Core::Ok();
       if (error_code == ERROR_DIR_NOT_EMPTY)  {
-        Core::Local_Arena<2048> arena;
+        auto delete_recursive = [] (this auto self, File_Path_View path) -> Result<void> {
+          Core::Local_Arena<2048> local;
+          auto &arena = local.arena;
 
-        auto delete_recursive = [] (this auto self, Core::Memory_Arena &allocator, File_Path_View path) -> Result<void> {
-          auto directory_search_query = concat_string(allocator, path, "\\*");
+          auto directory_search_query = concat_string(arena, path, "\\*");
   
           WIN32_FIND_DATA data;
           auto search_handle = FindFirstFile(directory_search_query, &data);
-          if (search_handle == INVALID_HANDLE_VALUE) return Core::Error(get_system_error());
+          if (search_handle == INVALID_HANDLE_VALUE) return get_system_error();
           defer { FindClose(search_handle); };
 
-          do {
-            auto local = allocator;
+          while (true) {
+            auto scoped_arena = arena;
 
             auto file_name = Core::String_View(Core::cast_bytes(data.cFileName));
-            auto sub_path  = concat_string(local, path, "\\", file_name);
-
-            if (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-              if (Core::compare_strings(file_name, ".") || Core::compare_strings(file_name, "..")) continue;
-              fin_check(self(local, sub_path));
+            if ((file_name != "." && file_name != "..")) {
+              auto sub_path     = make_file_path(scoped_arena, path, file_name);
+              auto is_directory = data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY;
+              fin_check(is_directory ? self(sub_path) : delete_file(sub_path));
             }
-            else fin_check(delete_file(sub_path));
-          } while (FindNextFile(search_handle, &data));
 
-          if (!RemoveDirectory(path.value)) return Core::Error(get_system_error());
+            if (!FindNextFile(search_handle, &data)) {
+              auto error_code = GetLastError();
+              if (error_code == ERROR_NO_MORE_FILES) break;
+              return get_system_error();
+            }
+          }
+
+          if (!RemoveDirectory(path.value)) {
+            assert(GetLastError() != ERROR_DIR_NOT_EMPTY);
+            return get_system_error();
+          }
 
           return Core::Ok();
         };
 
-        return delete_recursive(arena, path); 
+        return delete_recursive(path); 
       }
 
       return get_system_error();
@@ -258,31 +266,36 @@ static Result<void> copy_directory (File_Path_View from, File_Path_View to) {
     Core::Local_Arena<2048> local;
     auto &arena = local.arena;
 
-    WIN32_FIND_DATA find_file_data;
-
     auto search_query = concat_string(arena, from, "\\*");
 
+    WIN32_FIND_DATA find_file_data;
     auto search_handle = FindFirstFile(search_query.value, &find_file_data);
     if (search_handle == INVALID_HANDLE_VALUE) return get_system_error();
     defer { FindClose(search_handle); };
 
-    do {
-      auto scoped = arena;
+    while (true) {
+      auto scoped_arena = arena;
 
       auto file_name = Core::String_View(Core::cast_bytes(find_file_data.cFileName));
-      if (compare_strings(file_name, ".") || compare_strings(file_name, "..")) continue;
+      if (file_name != "." && file_name != "..") {
+        auto file_to_move = make_file_path(scoped_arena, from, file_name);
+        auto destination  = make_file_path(scoped_arena, to,   file_name);
 
-      auto file_to_move = concat_string(scoped, from, "\\", file_name);
-      auto destination  = concat_string(scoped, to,   "\\", file_name);
+        if (find_file_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+          if (!CreateDirectory(destination, nullptr)) return get_system_error();
+          fin_check(self(file_to_move, destination));
+        }
+        else {
+          if (!CopyFile(file_to_move.value, destination.value, FALSE)) return get_system_error();
+        }
+      }
 
-      if (find_file_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-        if (!CreateDirectory(destination, nullptr)) return get_system_error();
-        fin_check(self(file_to_move, destination));
+      if (!FindNextFile(search_handle, &find_file_data)) {
+        auto error_code = GetLastError();
+        if (error_code == ERROR_NO_MORE_FILES) break;
+        return get_system_error();
       }
-      else {
-        if (!CopyFile(file_to_move.value, destination.value, FALSE)) return get_system_error();
-      }
-    } while (FindNextFile(search_handle, &find_file_data) != 0);
+    }
 
     return Core::Ok();
   };
@@ -302,7 +315,7 @@ static Result<File> open_file (File_Path &&path, Core::Bit_Mask<File_System_Flag
   auto handle = CreateFile(path.value, access, sharing, NULL, status, FILE_ATTRIBUTE_NORMAL, NULL);
   if (handle == INVALID_HANDLE_VALUE) return get_system_error();
 
-  return File { handle, move(path) };
+  return File { handle, Core::move(path) };
 }
 
 static Result<void> close_file (File &file) {
