@@ -11,69 +11,74 @@ template <typename T>
 struct Seq {
   using Value_Type = T;
 
-  Allocator_View allocator;
+  Allocator_View allocator {};
 
   T     *data     = nullptr;
   usize  count    = 0;
   usize  capacity = 0;
 
-  Seq (const Callsite_Info callsite = Callsite_Info())
-    : Seq(get_global_allocator(), 16) {};
+  constexpr Seq () = default;
 
-  Seq (Allocator auto &_allocator, const usize initial_capacity,
-       const Callsite_Info callsite = Callsite_Info())
-    : allocator { _allocator },
-      capacity  { initial_capacity }
+  constexpr Seq (Allocator auto &_allocator, usize initial_capacity, Callsite_Info callsite = {})
+    : allocator { _allocator }, capacity { initial_capacity }
   {
-    auto memory = reserve<T>(_allocator, initial_capacity, alignof(T), callsite);
-    if (!memory) trap("Allocator has ran out of available memory");
-
-    this->data = reinterpret_cast<T *>(memory);
+    this->data = reserve<T>(_allocator, initial_capacity, alignof(T), callsite);
+    if (!this->data) trap("Allocator has ran out of available memory\n");
   }
 
-  ~Seq () {
-    assert(this->allocator);
-
-    for (usize idx = 0; idx < this->count; idx++) {
-      this->data[idx].~Value_Type();
-    }
-
-    free(*this->allocator, this->data);
-
-    this->data     = nullptr;
-    this->count    = 0;
-    this->capacity = 0;
+  constexpr decltype(auto) operator [] (this auto &&self, usize offset) {
+    assert(offset < self.capacity);
+    return self.data[offset];
   }
 
-  T       & operator [] (usize offset)       { return data[offset]; }
-  T const & operator [] (usize offset) const { return data[offset]; }
-
-  void grow_if_needed () {
+  constexpr void grow_if_needed (Callsite_Info callsite) {
     if (this->count == this->capacity) {
-      auto new_capacity = this->capacity * 2;
-      auto new_memory = grow(this->allocator, this->data, new_capacity);
-      if (!new_memory) trap();
+      auto old_size = sizeof(T) * this->capacity;
+      auto new_size = old_size * 2;
 
-      this->data     = new_memory;
-      this->capacity = new_capacity;
+      this->data = grow<T>(this->allocator, &this->data, old_size, new_size, false, alignof(T), callsite);
+      if (!this->data) trap("Allocator has ran out of available memory\n");
+
+      this->capacity = this->capacity * 2;
     }
   }
 
-  operator Slice<T> () const {
-    return Slice(data, count);
+  constexpr operator Slice<T> () const {
+    return Slice<T>(data, count);
   }
 };
 
 template <typename T>
-static void seq_push (Seq<T> &seq, typename Seq<T>::Value_Type &&value) {
-  seq.grow_if_needed();
-  seq[seq.count++] = move(value);
+constexpr void destroy (Seq<T> &seq, Callsite_Info callsite = {}) {
+  if (is_empty(seq)) return;
+
+  for (auto &value: seq) smart_destroy(value, callsite);
+
+  free(seq.allocator, seq.data, callsite);
+
+  seq.data     = nullptr;
+  seq.count    = 0;
+  seq.capacity = 0;
 }
 
 template <typename T>
-static void seq_push_copy (Seq<T> &seq, const typename Seq<T>::Value_Type &value) {
-  seq.grow_if_needed();
-  seq[seq.count++] = value;
+static void seq_push (Seq<T> &seq, typename Seq<T>::Value_Type &&value, Callsite_Info callsite = {}) {
+  seq.grow_if_needed(callsite);
+  seq[seq.count] = move(value);
+  seq.count += 1;
+}
+
+template <typename T>
+static void seq_push_copy (const Seq<T> &seq, const typename Seq<T>::Value_Type &value, Callsite_Info callsite = {}) {
+  seq.grow_if_needed(callsite);
+  seq[seq.count] = value;
+  seq.count += 1;
+}
+
+template <typename T>
+static Seq<T> reserve_seq (Allocator auto &allocator, usize count, usize alignment = alignof(T), Callsite_Info callsite = {}) {
+  if (count == 0) return {};
+  return Seq<T>(allocator, count, callsite);
 }
 
 }

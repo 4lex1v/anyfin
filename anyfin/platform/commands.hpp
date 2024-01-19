@@ -12,7 +12,7 @@ struct System_Command_Status {
   u32          status_code;
 };
 
-static Result<System_Command_Status> run_system_command (Core::Allocator auto &allocator, Core::String_View command_line);
+static Result<System_Command_Status> run_system_command (Core::Allocator auto &allocator, Core::String_View command_line, bool disabled_pipes = false);
 
 }
 

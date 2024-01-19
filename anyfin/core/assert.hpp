@@ -21,32 +21,32 @@
 #ifdef DISABLE_ASSERTIONS
   #define assert(EXPR)
   #define assert_msg(EXPR, MSG)
+  #define assert_caller(EXPR, CALLER)
 #else
   #define assert(EXPR) ensure(EXPR)
   #define assert_msg(EXPR, MSG) ensure_msg(EXPR, MSG)
+
+  #define assert_caller(EXPR, CALLER)                                 \
+    do {                                                              \
+      if (!static_cast<bool>(EXPR)) [[unlikely]] {                    \
+        ::Fin::Core::assert_caller_hook(stringify(EXPR), nullptr, (CALLER)); \
+      }                                                               \
+    } while (0)
 #endif
 
 namespace Fin::Core {
 
-/*
-  `assert_hook` allows us to inject custom logic into the core library, which is helpful in test environment,
-  to capture corner cases.
- */
-[[noreturn]]
-static void assert_hook (const char *expr, const char *message, const Callsite_Info callsite = {}) {
-  if (!expr) __builtin_trap();
+static usize assert_get_length (const char *value) {
+  usize length = 0;
+  while (value[length]) length += 1;
+  return length;
+};
 
-  const auto get_length = [] (const char *value) -> usize {
-    usize length = 0;
-    while (value[length]) length += 1;
-    return length;
-  };
-
-  char buffer[1024];
+static usize assert_print_callsite (char *buffer, const Callsite_Info &callsite) {
   usize offset = 0;
 
   {
-    const usize file_name_length = get_length(callsite.file);
+    const usize file_name_length = assert_get_length(callsite.file);
     __builtin_memcpy(buffer, callsite.file, file_name_length);
     offset += file_name_length;
   }
@@ -74,25 +74,44 @@ static void assert_hook (const char *expr, const char *message, const Callsite_I
   buffer[offset++] = ':';
 
   {
-    auto length = get_length(callsite.function);
+    auto length = assert_get_length(callsite.function);
     __builtin_memcpy(buffer + offset, callsite.function, length);
     offset += length;
   }
 
+  return offset;
+}
+
+static usize assert_print_base_message (char *buffer, const char *expr, const Callsite_Info &assert_callsite) {
+  usize offset = assert_print_callsite(buffer, assert_callsite);
+
   buffer[offset++] = ' ';
   buffer[offset++] = '-';
   buffer[offset++] = ' ';
+
+  {
+    const char msg[] = "ASSERT FAILED: ";
+    __builtin_memcpy(buffer + offset, msg, Base::array_count_elements(msg) - 1);
+    offset += Base::array_count_elements(msg) - 1;
+  }
   
   {
-    auto length = get_length(expr);
+    auto length = assert_get_length(expr);
     __builtin_memcpy(buffer + offset, expr, length);
     offset += length;
   }
 
+  return offset;
+}
+
+[[noreturn]]
+static void assert_trap (char *buffer, usize offset, const char *message) {
   if (!message) {
     buffer[offset++] = '\n';
-    buffer[offset] = '\0';
+    buffer[offset]   = '\0';
+
     trap(buffer);
+
     __builtin_unreachable();
   }
 
@@ -100,15 +119,48 @@ static void assert_hook (const char *expr, const char *message, const Callsite_I
   buffer[offset++] = ' ';
   
   {
-    auto length = get_length(message);
+    auto length = assert_get_length(message);
     __builtin_memcpy(buffer + offset, message, length);
     offset += length;
   }
 
   buffer[offset++] = '\n';
+  buffer[offset]   = '\0';
 
-  trap(buffer);
+  trap(buffer, offset);
   __builtin_unreachable();
+}
+
+/*
+  `assert_hook` allows us to inject custom logic into the core library, which is helpful in test environment,
+  to capture corner cases.
+ */
+[[noreturn]]
+static void assert_hook (const char *expr, const char *message, const Callsite_Info callsite = {}) {
+  if (!expr) __builtin_trap();
+
+  char buffer[1024];
+  usize offset = assert_print_base_message(buffer, expr, callsite);
+
+  assert_trap(buffer, offset, message);
+}
+
+[[noreturn]]
+static void assert_caller_hook (const char *expr, const char *message, Callsite_Info caller, Callsite_Info callsite = {}) {
+  if (!expr) __builtin_trap();
+
+  char buffer[1024];
+  usize offset = assert_print_base_message(buffer, expr, callsite);
+
+  {
+    const char msg[] = ", bad call at: ";
+    __builtin_memcpy(buffer + offset, msg, Base::array_count_elements(msg) - 1);
+    offset += Base::array_count_elements(msg) - 1;
+  }
+
+  offset += assert_print_callsite(buffer + offset, caller);
+
+  assert_trap(buffer, offset, message);
 }
 
 }

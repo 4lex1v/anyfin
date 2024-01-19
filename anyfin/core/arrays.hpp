@@ -50,8 +50,9 @@ static void destroy (Array<T> &array, Callsite_Info callsite = {}) {
 }
 
 template <typename T>
-static Array<T> reserve_array (Allocator auto &allocator, const usize count, const usize alignment = alignof(T), const Callsite_Info info = {}) {
-  auto reservation = reserve<T>(allocator, count, alignment, info);
+static Array<T> reserve_array (Allocator auto &allocator, const usize count, const usize alignment = alignof(T), const Callsite_Info callsite = {}) {
+  assert_caller(count > 0, callsite);
+  auto reservation = reserve<T>(allocator, count, alignment, callsite);
   return Array(allocator, reservation, count);
 }
 

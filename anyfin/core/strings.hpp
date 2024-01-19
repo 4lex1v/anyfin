@@ -8,6 +8,7 @@
 #include "anyfin/core/memory.hpp"
 #include "anyfin/core/meta.hpp"
 #include "anyfin/core/prelude.hpp"
+#include "anyfin/core/slice.hpp"
 
 namespace Fin::Core {
 
@@ -94,6 +95,10 @@ struct String_View {
 
 static_assert(sizeof(String_View) == 16);
 
+constexpr Slice<const char> slice (String_View view) {
+  return Slice(view.value, view.length);
+}
+
 static void destroy (String &string, const Callsite_Info info = {});
 
 struct String {
@@ -126,12 +131,6 @@ struct String {
     other.allocator = {};
     other.value     = nullptr;
     other.length    = 0;
-  }
-
-  String& operator = (const String &other) {
-    destroy(*this);
-    copy_string(other.allocator, *this, other);
-    return *this;
   }
 
   String& operator = (String &&other) {

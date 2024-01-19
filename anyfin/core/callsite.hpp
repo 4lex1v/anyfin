@@ -17,5 +17,8 @@ struct Callsite_Info {
   {}
 };
 
+static auto to_string (const Callsite_Info &callsite, auto &allocator) {
+  return concat_string(allocator, callsite.file, "(", callsite.line, "):", callsite.function);
+}
 
 }

@@ -37,7 +37,7 @@ static auto to_string (System_Error error, A &allocator) {
   builder += to_string(error.error_code, allocator);
 
   if (!is_empty(error.details)) {
-    builder += ". Details: ";
+    builder += " - ";
     builder += error.details;
   }
 

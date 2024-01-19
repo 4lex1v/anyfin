@@ -8,6 +8,7 @@
 #include "anyfin/core/memory.hpp"
 #include "anyfin/core/meta.hpp"
 #include "anyfin/core/prelude.hpp"
+#include "anyfin/core/format.hpp"
 
 namespace Fin::Core {
 
@@ -39,10 +40,7 @@ struct Memory_Arena {
   operator Allocator_View ();
 };
 
-static u8 * arena_reserve (Memory_Arena &arena, usize size, usize alignment) {
-  assert(size >= 1);
-  assert(alignment >= 1);
-
+static u8 * arena_reserve (Memory_Arena &arena, usize size, usize alignment, const Callsite_Info &callsite) {
   if (!size || !alignment) [[unlikely]] return nullptr;
   
   auto base         = arena.memory + arena.offset;
@@ -51,7 +49,7 @@ static u8 * arena_reserve (Memory_Arena &arena, usize size, usize alignment) {
   auto alignment_shift  = static_cast<usize>(aligned_base - base);
   auto reservation_size = alignment_shift + size;
   
-  assert((reservation_size + arena.offset) <= arena.size);
+  assert_caller((reservation_size + arena.offset) <= arena.size, callsite);
   if ((reservation_size + arena.offset) > arena.size) [[unlikely]] return nullptr;
 
   arena.offset += reservation_size;
@@ -60,11 +58,9 @@ static u8 * arena_reserve (Memory_Arena &arena, usize size, usize alignment) {
 }
 
 static u8 * arena_grow (Memory_Arena &arena, void *address, usize old_size, usize new_size,
-                        bool immediate, usize reserve_alignment) {
-  assert(new_size >= 1);
-  
+                        bool immediate, usize reserve_alignment, const Callsite_Info &callsite) {
   if (address == nullptr) {
-    if (old_size == 0) return arena_reserve(arena, new_size, reserve_alignment);
+    if (old_size == 0) return arena_reserve(arena, new_size, reserve_alignment, callsite);
     return nullptr;
   }
 
@@ -87,7 +83,7 @@ static u8 * arena_grow (Memory_Arena &arena, void *address, usize old_size, usiz
   if (!address || !old_size || !new_size) [[unlikely]] return nullptr;
 
   const auto alignment = 1ULL << __builtin_ctzll(reinterpret_cast<usize>(address));
-  auto new_region = arena_reserve(arena, new_size, alignment);
+  auto new_region = arena_reserve(arena, new_size, alignment, callsite);
   if (!new_region) [[unlikely]] return nullptr;
 
   copy_memory(new_region, reinterpret_cast<u8 *>(address), old_size);
@@ -102,9 +98,17 @@ static u8 * allocator_dispatch (Memory_Arena &arena, Allocation_Request request)
   assert(arena.offset < arena.size);
   
   switch (request.type) {
-    case Allocation_Request::Reserve: return arena_reserve(arena, request.size, request.alignment);
-    case Allocation_Request::Grow:
-      return arena_grow(arena, request.address, request.old_size, request.size, request.immediate, request.alignment);
+    case Allocation_Request::Reserve: {
+      assert(request.size >= 1);
+      assert(request.alignment >= 1);
+
+      return arena_reserve(arena, request.size, request.alignment, request.callsite);
+    }
+    case Allocation_Request::Grow: {
+      assert(request.size >= 1);
+
+      return arena_grow(arena, request.address, request.old_size, request.size, request.immediate, request.alignment, request.callsite);
+    }
     case Allocation_Request::Free: {
       if (request.immediate) {
         auto edge = arena.memory + arena.offset;

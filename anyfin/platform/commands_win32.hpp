@@ -9,20 +9,38 @@
 
 namespace Fin::Platform {
 
-static Result<System_Command_Status> run_system_command (Core::Allocator auto &allocator, Core::String_View command_line) {
+static Result<System_Command_Status> run_system_command (Core::Allocator auto &allocator, Core::String_View command_line, bool disable_pipes) {
   SECURITY_ATTRIBUTES security { .nLength = sizeof(SECURITY_ATTRIBUTES), .bInheritHandle = TRUE };
 
+  STARTUPINFO info { .cb = sizeof(STARTUPINFO) };
+  if (disable_pipes) {
+    /*
+      With disabled piping, we can't get process' output, so we just run it and wait for its completion.
+     */
+
+    PROCESS_INFORMATION process {};
+    if (!CreateProcess(nullptr, const_cast<char *>(command_line.value), &security, &security, TRUE, 0, NULL, NULL, &info, &process))
+      return get_system_error();
+
+    WaitForSingleObject(process.hProcess, INFINITE);
+
+    DWORD exit_code = 0;
+    GetExitCodeProcess(process.hProcess, &exit_code);
+
+    CloseHandle(process.hThread);
+    CloseHandle(process.hProcess);
+
+    return System_Command_Status { .status_code = exit_code };
+  }  
+ 
   HANDLE child_stdout_read, child_stdout_write;
   if (!CreatePipe(&child_stdout_read, &child_stdout_write, &security, 0))   return get_system_error();
   if (!SetHandleInformation(child_stdout_read, HANDLE_FLAG_INHERIT, FALSE)) return get_system_error();
-  defer {  CloseHandle(child_stdout_read); };
+  defer { CloseHandle(child_stdout_read); };
   
-  STARTUPINFO info {
-    .cb         = sizeof(STARTUPINFO),
-    .dwFlags    = STARTF_USESTDHANDLES,
-    .hStdOutput = child_stdout_write,
-    .hStdError  = child_stdout_write,
-  };
+  info.dwFlags    = STARTF_USESTDHANDLES;
+  info.hStdOutput = child_stdout_write;
+  info.hStdError  = child_stdout_write;
 
   PROCESS_INFORMATION process {};
   if (!CreateProcess(nullptr, const_cast<char *>(command_line.value), &security, &security, TRUE, 0, NULL, NULL, &info, &process))

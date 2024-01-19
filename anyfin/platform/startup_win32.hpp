@@ -90,8 +90,9 @@ static Core::Array<Startup_Argument> get_startup_args (Core::Allocator auto &all
   if (!has_arguments) return {};
 
   auto args_count = count_arguments(arguments);
-  auto args       = reserve_array<Startup_Argument>(allocator, args_count);
+  if (!args_count) return {};
 
+  auto args = reserve_array<Startup_Argument>(allocator, args_count);
   collect_input_arguments(arguments, args);
 
   return args;

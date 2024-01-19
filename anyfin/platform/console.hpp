@@ -11,11 +11,16 @@ namespace Fin::Core {
 
 static Fin::Platform::Result<void> print (String_View string);
 
-template <usize MEMORY_SIZE = 1024, typename... Args>
+template <typename... Args>
+static Fin::Platform::Result<void> print (Allocator auto &allocator, Format_String &&format, Args&&... args) {
+  auto message = format_string(allocator, move(format), forward<Args>(args)...);
+  return print(message);
+}
+
+template <usize MEMORY_SIZE = 2048, typename... Args>
 static Fin::Platform::Result<void> print (Format_String &&format, Args&&... args) {
   Local_Arena<MEMORY_SIZE> local;
-  auto message = format_string(local.arena, move(format), forward<Args>(args)...);
-  return print(message);
+  return print(local.arena, move(format), forward<Args>(args)...);
 }
 
 }

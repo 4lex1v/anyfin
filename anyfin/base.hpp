@@ -34,7 +34,16 @@ using psize = usize;
 
 #define defer auto tokenpaste(__deferred_lambda_call, __COUNTER__) = Fin::Base::deferrer << [&] ()
 
+#define fn(NAME) [&] (auto NAME)
+#define lambda fn(it)
+#define block  fn(_)
+
 namespace Fin::Base {
+
+template <typename T, usize N>
+consteval usize array_count_elements (const T (&)[N]) {
+  return N;
+}
 
 template <typename Type>
 struct Deferrable {

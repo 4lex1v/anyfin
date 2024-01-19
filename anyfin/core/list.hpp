@@ -30,9 +30,9 @@ struct List {
 
   usize count = 0;
 
-  List () = default;
+  constexpr List () = default;
 
-  List (Allocator auto &_allocator)
+  constexpr List (Allocator auto &_allocator)
     : allocator { _allocator } {}
 
   struct Iterator {
@@ -83,6 +83,12 @@ struct List {
   bool contains (const Invocable<bool, const T &> auto &pred) const {
     return !!find_node(pred);
   }
+  
+  bool contains (const T &value) const
+    requires requires (const T &a, const T &b) { { a == b } -> Same_Types<bool>; }
+  {
+    return contains([&] (const T &elem) { return elem == value; });
+  }
 
   bool remove (const Invocable<bool, const T &> auto &pred) {
     auto [found, node] = find_node(pred);
@@ -102,7 +108,7 @@ struct List {
 };
 
 template <typename T>
-static inline void destroy (List<T> &list, const Callsite_Info info = Callsite_Info()) {
+constexpr void destroy (List<T> &list, const Callsite_Info info = Callsite_Info()) {
   auto cursor = list.first;
   while (cursor) {
     smart_destroy(cursor->value, info);

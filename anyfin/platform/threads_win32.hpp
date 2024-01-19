@@ -20,6 +20,8 @@ static Result<Thread> spawn_thread (const Core::Invocable<void> auto &proc) {
 
 static Result<void> shutdown_thread (Thread &thread);
 
-static u32 get_current_thread_id ();
+static u32 get_current_thread_id () {
+  return GetCurrentThreadId();
+}
 
 }
