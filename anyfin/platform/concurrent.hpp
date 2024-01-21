@@ -31,7 +31,7 @@ struct Semaphore {
 };
 
 static Result<Semaphore> create_semaphore (u32 count = static_cast<u32>(-1));
-static Result<void> destroy_semaphore (Semaphore &semaphore);
+static Result<void> destroy (Semaphore &semaphore);
 
 static Result<u32> increment_semaphore (Semaphore &semaphore, u32 increment_value = 1);
 

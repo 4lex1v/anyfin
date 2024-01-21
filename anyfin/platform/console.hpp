@@ -23,6 +23,14 @@ static Fin::Platform::Result<void> print (Format_String &&format, Args&&... args
   return print(local.arena, move(format), forward<Args>(args)...);
 }
 
+template <usize MEMORY_SIZE = 2048, typename... Args>
+static Fin::Platform::Result<void> log_internal (Format_String &&format, Callsite_Info callsite, Args&&... args) {
+  Local_Arena<MEMORY_SIZE> local;
+  return print(local.arena, move(format), callsite, forward<Args>(args)...);
+}
+
+#define log(FMT, ...) log_internal("%: " FMT, {}, ##__VA_ARGS__)
+
 }
 
 #ifndef CONSOLE_HPP_IMPL

@@ -32,6 +32,12 @@ using psize = usize;
 
 #define fin_forceinline __attribute__((always_inline))
 
+#if DEV_BUILD
+  #define fin_deb_skip fin_forceinline
+#else
+  #define fin_deb_skip
+#endif
+
 #define defer auto tokenpaste(__deferred_lambda_call, __COUNTER__) = Fin::Base::deferrer << [&] ()
 
 #define fn(NAME) [&] (auto NAME)

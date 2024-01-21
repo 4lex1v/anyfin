@@ -33,6 +33,11 @@ static File_Path make_file_path (Core::Allocator auto &allocator, Core::Converti
   usize length = 0;
 
   const auto push_segment = [&] (Core::String_View segment) {
+    /*
+      This would allow using conditional parts in the file path construction.
+     */
+    if (is_empty(segment)) return;
+    
     auto reservation_size = segment.length + 1;
 
     auto memory = grow(allocator, &buffer, length, reservation_size, buffer != nullptr, alignof(char));
@@ -84,12 +89,14 @@ static void create_file (Core::Allocator auto &allocator, File_Path_View path, C
   });
 }
 
+fin_forceinline
 static Result<void> create_directory (File_Path_View path, Core::Bit_Mask<File_System_Flags> flags = {}) {
   return create_resource(path, Resource_Type::Directory, flags);
 }
 
+fin_forceinline
 static void create_directory (Core::Allocator auto &allocator, File_Path_View path, Core::Bit_Mask<File_System_Flags> flags = {}) {
-  create_directory(path).expect([&](auto error) -> Core::String_View {
+  create_resource(path, Resource_Type::Directory, flags).expect([&](auto error) -> Core::String_View {
     return concat_string(allocator, "ERROR: Couldn't create directory ", path, " due to a system error: ", error, "\n");
   });
 }

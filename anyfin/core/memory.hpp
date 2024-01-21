@@ -31,8 +31,8 @@ constexpr bool is_aligned_by (const auto value, const usize by) {
 }
 
 template <typename T>
-constexpr void copy_memory (T *destination, const T *source, const usize count) {
-  __builtin_memcpy(destination, source, sizeof(T) * count);
+constexpr auto copy_memory (T *destination, const T *source, const usize count) {
+  return __builtin_memcpy(destination, source, sizeof(T) * count);
 }
 
 template <typename T>
@@ -61,11 +61,17 @@ static const char * get_character_offset (const char *memory, const usize length
   return nullptr;
 }
 
-static const char * get_character_offset_reversed (const char *memory, const usize length, const char value) {
+fin_forceinline
+static const char * get_character_offset (const char *memory, const char *end, const char value) {
+  return get_character_offset(memory, end - memory, value);
+}
+
+static auto get_character_offset_reversed (Byte_Type auto *memory, const usize length, const char value) -> decltype(memory) {
   if (!memory || length == 0) [[unlikely]] return nullptr;
   for (auto cursor = (memory + length - 1); cursor >= memory; cursor--) {
     if (*cursor == value) return cursor;
   }
+
   return nullptr;
 }
 

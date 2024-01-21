@@ -32,10 +32,42 @@ static Result<void> create_resource (File_Path_View path, const Resource_Type re
       return Core::Ok();
     }
     case Resource_Type::Directory: {
-      if (CreateDirectory(path, nullptr))         return Core::Ok();
-      if (GetLastError() == ERROR_ALREADY_EXISTS) return Core::Ok();
+      if (CreateDirectory(path, nullptr)) return Core::Ok();
 
-      return Core::Error(get_system_error()); 
+      auto error_code = GetLastError();
+      if (error_code == ERROR_ALREADY_EXISTS) return Core::Ok();
+      if (error_code != ERROR_PATH_NOT_FOUND) return get_system_error();
+
+      if (!flags.is_set(File_System_Flags::Force)) return get_system_error();
+
+      const auto create_recursive = [] (this auto self, char *path, usize length) -> Result<void> {
+        auto attributes = GetFileAttributes(path);
+
+        if ((attributes != INVALID_FILE_ATTRIBUTES) &&
+            (attributes & FILE_ATTRIBUTE_DIRECTORY))
+          return Core::Ok();
+
+        auto separator = Core::get_character_offset_reversed(path, length, '\\');
+        if (separator) {
+          *separator = '\0';
+          fin_check(self(path, separator - path));
+          *separator = '\\';
+        }
+
+        if (!CreateDirectory(path, nullptr)) {
+          if (GetLastError() == ERROR_ALREADY_EXISTS) return Core::Ok();
+          return get_system_error();
+        }
+
+        return Core::Ok();
+      };
+
+      assert(path.length < MAX_PATH);
+      char path_buffer[MAX_PATH];
+      Core::copy_memory(path_buffer, path.value, path.length);
+      path_buffer[path.length] = '\0';
+
+      return create_recursive(path_buffer, path.length);
     }
   }
 }
@@ -132,15 +164,16 @@ static Result<Core::String> get_resource_name (Core::Allocator auto &allocator, 
 
 static Result<File_Path> get_absolute_path (Core::Allocator auto &allocator, File_Path_View path) {
   auto full_path_name_length = GetFullPathName(path, 0, nullptr, nullptr);
+  if (!full_path_name_length) return get_system_error();
 
   auto buffer = reserve(allocator, full_path_name_length);
 
   if (!GetFullPathName(path, full_path_name_length, buffer, nullptr)) {
     free(allocator, buffer);
-    return Core::Error(get_system_error());
+    return get_system_error();
   }
 
-  return Core::Ok(File_Path(allocator, buffer, full_path_name_length - 1));
+  return File_Path(allocator, buffer, full_path_name_length - 1);
 }
 
 static bool is_absolute_path (File_Path_View path) {
@@ -154,18 +187,27 @@ static bool is_absolute_path (File_Path_View path) {
   return false;
 }
 
+static Result<Resource_Type> get_resource_type (File_Path_View path) {
+  const auto attrs = GetFileAttributes(path.value);
+  if (attrs == INVALID_FILE_ATTRIBUTES) return get_system_error();
+
+  return (attrs & FILE_ATTRIBUTE_DIRECTORY) ? Resource_Type::Directory : Resource_Type::File;
+};
+
 static Result<File_Path> get_folder_path (Core::Allocator auto &allocator, File_Path_View path) {
-  assert(!is_empty(path));
+  char buffer[MAX_PATH];
+  char *file_name_part = nullptr;
 
-  const char *last_separator = path.value + path.length - 1;
-  while (last_separator > path.value) {
-    if (*last_separator == '\\' || *last_separator == '/') break;
-    last_separator -= 1;
-  }
+  auto full_path_length = GetFullPathName(path, MAX_PATH, buffer, &file_name_part);
+  if (!full_path_length) return get_system_error();
 
-  if (last_separator == path.value) return get_working_directory(allocator);
+  auto path_end                = file_name_part ? file_name_part : (buffer + full_path_length);
+  auto folder_path_part_length = path_end - buffer;
 
-  return get_absolute_path(allocator, File_Path_View(path.value, last_separator - path.value));
+  if (buffer[folder_path_part_length - 1] == '\\')
+    folder_path_part_length -= 1;
+
+  return File_Path::copy(allocator, buffer, folder_path_part_length);
 }
 
 static Result<File_Path> get_working_directory (Core::Allocator auto &allocator) {

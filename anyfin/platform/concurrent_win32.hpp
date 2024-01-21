@@ -1,6 +1,7 @@
 
 #define CONCURRENT_HPP_IMPL
 
+#include "anyfin/core/math.hpp"
 #include "anyfin/platform/concurrent.hpp"
 
 #include "anyfin/core/win32.hpp"
@@ -8,10 +9,7 @@
 namespace Fin::Platform {
 
 static Result<Semaphore> create_semaphore (u32 count) {
-  LONG clamped = static_cast<LONG>(count);
-
-  if      (count == 0)       clamped = 1;
-  else if (count > LONG_MAX) clamped = LONG_MAX;
+  auto clamped = Core::clamp<s32>(count, 1, ~0x80000000);
 
   auto handle = CreateSemaphore(nullptr, 0, clamped, nullptr);
   if (!handle) return Core::Error(get_system_error());
@@ -19,7 +17,7 @@ static Result<Semaphore> create_semaphore (u32 count) {
   return Core::Ok(Semaphore { reinterpret_cast<Semaphore::Handle *>(handle) });
 }
 
-static Result<void> destroy_semaphore (Semaphore &semaphore) {
+static Result<void> destroy (Semaphore &semaphore) {
   if (!CloseHandle(semaphore.handle))
     return Core::Error(get_system_error());
 
