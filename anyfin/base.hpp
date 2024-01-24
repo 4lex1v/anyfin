@@ -20,7 +20,6 @@ using f32 = float;
 using f64 = double;
 
 using usize = size_t;
-using psize = usize;
 
 #define tokenpaste2(X, Y) X##Y
 #define tokenpaste(X, Y) tokenpaste2(X, Y)
@@ -28,42 +27,12 @@ using psize = usize;
 #define stringify2(X) #X
 #define stringify(X) stringify2(X)
 
-#define flag(N) 1 << (N)
+#define fin_flag(N) 1 << (N)
 
 #define fin_forceinline __attribute__((always_inline))
 
-#if DEV_BUILD
-  #define fin_deb_skip fin_forceinline
+#ifdef DEV_BUILD
+  #define fin_ensure(EXPR) do { if (!static_cast<bool>(EXPR)) __builtin_debugtrap(); } while (0)
 #else
-  #define fin_deb_skip
+  #define fin_ensure(EXPR)
 #endif
-
-#define defer auto tokenpaste(__deferred_lambda_call, __COUNTER__) = Fin::Base::deferrer << [&] ()
-
-#define fn(NAME) [&] (auto NAME)
-#define lambda fn(it)
-#define block  fn(_)
-
-namespace Fin::Base {
-
-template <typename T, usize N>
-consteval usize array_count_elements (const T (&)[N]) {
-  return N;
-}
-
-template <typename Type>
-struct Deferrable {
-  Type cleanup;
-
-  explicit Deferrable (Type &&cb): cleanup { cb } {}
-  ~Deferrable () { cleanup(); }
-};
-
-static struct {
-  template <typename Type>
-  constexpr Deferrable<Type> operator << (Type &&cb) {
-    return Deferrable<Type>(static_cast<Type &&>(cb));
-  }
-} deferrer;
-
-}

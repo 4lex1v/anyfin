@@ -9,7 +9,7 @@ extern "C" bool setup_project (const Arguments *args, Project *project) {
   add_global_compiler_options(project,
                               "-std=c++20",
                               "-O0 -g -gcodeview",
-                              "-DPLATFORM_WIN32 -DPLATFORM_X64",
+                              "-DFIN_PLATFORM_WIN32 -DFIN_CPU_ARCH_X64",
                               "-DRHI_OPENGL");
 
   add_global_compiler_option(project, "-DDEV_TOOLS_ENABLED");
