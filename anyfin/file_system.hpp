@@ -50,7 +50,7 @@ constexpr File_Path make_file_path (Memory_Arena &arena, String segment, Convert
   *cursor = '\0';
   auto length = cursor - buffer;
 
-#ifdef FIN_PLATFORM_WIN32
+#ifdef PLATFORM_WIN32
   for (usize idx = 0; idx < length; idx++) {
     if (buffer[idx] == '/') buffer[idx] = '\\';
   }
@@ -62,10 +62,10 @@ constexpr File_Path make_file_path (Memory_Arena &arena, String segment, Convert
 enum struct Resource_Type { File, Directory };
 
 enum struct File_System_Flags: u64 {
-  Write_Access   = 0,
-  Shared_Write   = 1,
-  Create_Missing = 1 << 1,
-  Force          = 1 << 2,
+  Write_Access   = fin_flag(1),
+  Shared_Write   = fin_flag(2),
+  Create_Missing = fin_flag(3),
+  Force          = fin_flag(4),
 };
 
 /*
@@ -166,7 +166,7 @@ static Sys_Result<void> write_bytes_to_file (File &file, String data) {
 
 template <usize N>
 static Sys_Result<void> write_bytes_to_file (File &file, Byte_Type auto (&data)[N]) {
-  return write_bytes_to_file(file, data, N - 1);
+  return write_bytes_to_file(file, data, N);
 }
 
 static Sys_Result<void> read_bytes_into_buffer (File &file, u8 *buffer, usize bytes_to_read);
@@ -191,7 +191,7 @@ static Sys_Result<void> unmap_file (File_Mapping &mapping);
 }
 
 #ifndef FIN_FILE_SYSTEM_HPP_IMPL
-  #ifdef FIN_PLATFORM_WIN32
+  #ifdef PLATFORM_WIN32
     #include "anyfin/file_system_win32.hpp"
   #else
     #error "Unsupported platform"

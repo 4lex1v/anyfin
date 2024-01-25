@@ -71,7 +71,7 @@ static auto to_string (const System_Error &error, Memory_Arena &arena) {
 }
 
 #ifndef FIN_PLATFORM_HPP_IMPL
-  #ifdef FIN_PLATFORM_WIN32
+  #ifdef PLATFORM_WIN32
     #include "anyfin/platform_win32.hpp"
   #else
     #error "Unsupported platform"

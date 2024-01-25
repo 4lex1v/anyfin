@@ -26,7 +26,7 @@ static u32 get_current_thread_id ();
 }
 
 #ifndef FIN_THREADS_HPP_IMPL
-  #ifdef FIN_PLATFORM_WIN32
+  #ifdef PLATFORM_WIN32
     #include "anyfin/threads_win32.hpp"
   #else
     #error "Unsupported platform"

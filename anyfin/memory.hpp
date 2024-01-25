@@ -85,7 +85,7 @@ static void free_virtual_memory (Memory_Region &region);
 }
 
 #ifndef FIN_MEMORY_HPP_IMPL
-  #ifdef FIN_PLATFORM_WIN32
+  #ifdef PLATFORM_WIN32
     #include "anyfin/memory_win32.hpp"
   #else
     #error "Unsupported platform"

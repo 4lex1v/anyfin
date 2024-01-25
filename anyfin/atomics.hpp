@@ -52,7 +52,7 @@ using causize = Aligned_Atomic<usize>;
 }
 
 #ifndef FIN_ATOMICS_HPP_IMPL
-  #ifdef FIN_CPU_ARCH_X64
+  #ifdef CPU_ARCH_X64
     #include "anyfin/atomics_x64.hpp"
   #else
     #error "Unsupported CPU architecture"

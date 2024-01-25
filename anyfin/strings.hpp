@@ -113,8 +113,7 @@ constexpr String copy_string (Memory_Arena &arena, Byte_Type auto *bytes) {
 }
 
 constexpr bool is_empty (String view) {
-  if (view.value == nullptr && view.length == 0) return true;
-  return false;
+  return view.length == 0;
 }
 
 constexpr bool starts_with (String view, String start) {

@@ -16,14 +16,12 @@ struct Option {
   bool has_value = false;
   T    value;
 
-  fin_forceinline constexpr Option ()     = default;
+  fin_forceinline constexpr Option () = default;
   fin_forceinline constexpr Option (None): has_value { false } {}
 
   fin_forceinline
   constexpr Option (Value_Type &&_value)
-    : has_value { true },
-      value     { _value }
-  {}
+    : has_value { true }, value { _value } {}
 
   fin_forceinline
   constexpr Option (Option<T> &&other)
@@ -61,11 +59,6 @@ struct Option {
   fin_forceinline
   constexpr Value_Type && or_default () {
     return move(is_some() ? this->value : Value_Type {});
-  }
-
-  fin_forceinline
-  constexpr void handle_value (const Invocable<void, const T &> auto &closure) const {
-    if (is_some()) closure(this->value);
   }
 };
 

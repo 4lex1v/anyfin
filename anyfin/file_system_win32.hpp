@@ -152,10 +152,13 @@ static Sys_Result<String> get_resource_name (File_Path path) {
 
   usize idx = path.length - 1;
   for (; idx >= 0; idx--) {
-    if (path[idx] == '\\' || path[idx] == '/') break;
+    if (path[idx] == '\\' || path[idx] == '/') {
+      auto after_separator = idx + 1;
+      return String(path.value + after_separator, path.length - after_separator);
+    }
   }
 
-  return String(path.value + idx, path.length - idx);
+  return path;
 }
 
 static Sys_Result<File_Path> get_absolute_path (Memory_Arena &arena, File_Path path) {

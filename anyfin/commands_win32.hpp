@@ -2,7 +2,6 @@
 #define FIN_COMMANDS_HPP_IMPL
 
 #include "anyfin/commands.hpp"
-#include "anyfin/trap.hpp"
 #include "anyfin/defer.hpp"
 
 namespace Fin {
@@ -74,7 +73,7 @@ static Sys_Result<System_Command_Status> run_system_command (Memory_Arena &arena
         Tiny hack to reserve space for the terminating 0
        */
       auto region = reserve<char>(arena, bytes_available);
-      if (!region) trap("Arena is out of available memory");
+      fin_ensure(region);
 
       DWORD bytes_read;
       if (!ReadFile(child_stdout_read, region, bytes_available, &bytes_read, NULL)) {

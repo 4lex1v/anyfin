@@ -118,13 +118,15 @@ static void print_argument (Memory_Arena &arena, usize index, Format_String &for
   fin_ensure(segment.type == Format_String::Segment::Placeholder);
 
   if constexpr (Convertible_To<T, String>) {
-    auto str    = static_cast<String>(arg);
-    auto buffer = reserve<char>(arena, str.length);
-
-    copy_memory(buffer, str.value, str.length);
+    auto str = static_cast<String>(arg);
+    if (!is_empty(str)) {
+      auto buffer = reserve<char>(arena, str.length);
+      copy_memory(buffer, str.value, str.length);
+    }
   }
   else {
     auto str = to_string(forward<T>(arg), arena);
+    fin_ensure(!is_empty(str));
 
     /*
       To main proper C strings interface with null terminators to_string would place a \0 after the renderered string.
