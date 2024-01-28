@@ -370,11 +370,14 @@ static Sys_Result<u64> get_file_size (const File &file) {
 }
 
 static Sys_Result<u64> get_file_id (const File &file) {
-  FILE_ID_INFO id_info;
-  if (!GetFileInformationByHandleEx(file.handle, FileIdInfo, &id_info, sizeof(id_info)))
+  BY_HANDLE_FILE_INFORMATION info;
+  if (!GetFileInformationByHandle(file.handle, &info))
     return get_system_error();
 
-  return Ok(*reinterpret_cast<u64 *>(id_info.FileId.Identifier));
+  u64 file_id  = info.nFileIndexLow;
+  file_id     |= (static_cast<u64>(info.nFileIndexHigh) << 32);
+  
+  return file_id;
 }
 
 static Sys_Result<void> write_bytes_to_file (File &file, Byte_Type auto *bytes, usize count) {
