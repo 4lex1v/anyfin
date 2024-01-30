@@ -11,10 +11,10 @@ using u16 = unsigned short;
 using u32 = unsigned int;
 using u64 = unsigned long long;
 
-using b1 = u8;
-using b2 = u16;
-using b4 = u32;
-using b8 = u64;
+using b8  = u8;
+using b16 = u16;
+using b32 = u32;
+using b64 = u64;
 
 using f32 = float;
 using f64 = double;

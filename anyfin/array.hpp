@@ -12,17 +12,18 @@ struct Array {
   T     *values = nullptr;
   usize  count  = 0;
 
-  constexpr Array () = default;
-  constexpr Array (T *_values, usize _count)
+  fin_forceinline constexpr Array () = default;
+  fin_forceinline constexpr Array (T *_values, usize _count)
     : values { _values }, count { _count }
   {}
 
+  fin_forceinline
   constexpr decltype(auto) operator [] (this auto &&self, usize offset) {
     return self.values[offset];
   }
 
-  constexpr decltype(auto) begin (this auto &&self) { return self.values; }
-  constexpr decltype(auto) end   (this auto &&self) { return self.values + self.count; }
+  fin_forceinline constexpr decltype(auto) begin (this auto &&self) { return self.values; }
+  fin_forceinline constexpr decltype(auto) end   (this auto &&self) { return self.values + self.count; }
 };
 
 template <typename T>

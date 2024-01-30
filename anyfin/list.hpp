@@ -3,7 +3,6 @@
 
 #include "anyfin/base.hpp"
 #include "anyfin/arena.hpp"
-#include "anyfin/option.hpp"
 
 namespace Fin {
 
@@ -13,9 +12,7 @@ struct List {
   
   struct Node {
     Value_Type value;
-
-    Node *next     = nullptr;
-    Node *previous = nullptr;
+    Node *next = nullptr;
 
     fin_forceinline
     constexpr Node (Value_Type &&_value)
@@ -55,12 +52,31 @@ struct List {
 
   usize count = 0;
 
-  constexpr List () = default;
-  constexpr List (Memory_Arena &_arena)
+  fin_forceinline constexpr List () = default;
+  fin_forceinline constexpr List (Memory_Arena &_arena)
     : arena { &_arena } {}
+
+  fin_forceinline constexpr List (Memory_Arena &_arena, const List<T> &other)
+    : arena { &_arena }, first { other.first }, last { other.last } {}
+
+  /*
+    Because of the arena's pointer we can't simply copy this list, otherwise we may
+    end up overwriting data within the arena, e.g we create a list using arena A,
+    arena A is copied into a local copy B, attempting to make any changes to the list
+    would cause memory coruption in arena B.
+   */
+  constexpr List (const List<T> &other) = delete;
+
+  fin_forceinline constexpr List (List<T> &&other)
+    : arena { other.arena }, first { other.first }, last { other.last }
+  {
+    other.arena = nullptr;
+    other.first = nullptr;
+    other.last  = nullptr;
+  }
   
-  fin_forceinline constexpr Iterator begin (this auto self) { return Iterator(self.first); } 
-  fin_forceinline constexpr Iterator end   (this auto self) { return Iterator(nullptr); }
+  fin_forceinline constexpr Iterator begin (this const auto &self) { return Iterator(self.first); } 
+  fin_forceinline constexpr Iterator end   (this const auto &self) { return Iterator(nullptr); }
 
   fin_forceinline
   constexpr void for_each (const Invocable<void, T &> auto &func) const {
@@ -84,20 +100,28 @@ struct List {
   }
 
   bool remove (const Invocable<bool, const T &> auto &pred) {
-    Node *node = nullptr;
-    for (auto cursor = first; cursor; cursor = cursor->next)
-      if (pred(cursor->value)) { node = cursor; break; }
+    Node *previous = nullptr, *node = nullptr;
+    for (auto cursor = first; cursor; cursor = cursor->next) {
+      if (pred(cursor->value)) {
+        node = cursor;
+        break;
+      }
+
+      previous = cursor;
+    }
 
     if (!node) return false;
 
-    if (node->previous) node->previous->next = node->next;
-    else                this->first = node->next;
+    this->count -= 1;
 
-    if (node->next) node->next->previous = node->previous;
-    else            this->last = node->previous;
+    if (!previous) {
+      fin_ensure(this->first == node);
 
-    this->count--;
+      this->first = node->next;
+      return true;
+    }
 
+    previous->next = node->next;
     return true;
   }
 
@@ -118,7 +142,6 @@ static T & list_push (List<T> &list, List_Value<T> &&value) {
     list.last  = node;
   }
   else {
-    node->previous  = list.last;
     list.last->next = node;
     list.last       = node;
   }
@@ -134,21 +157,29 @@ static T & list_push_copy (List<T> &list, List_Value<T> value) {
 }
 
 template <typename T>
-static bool list_remove_at_index (List<T> &list, usize position) {
-  if (list->count == 0 || position >= list->count) return false;
+static T & list_push_front(List<T> &list, List_Value<T> &&value) {
+  using Node_Type = typename List<T>::Node;
 
-  auto node = list->first;
-  for (usize i = 0; i < position; ++i) node = node->next;
+  auto node = new (*list.arena) Node_Type(move(value));
 
-  if (node->previous != nullptr) node->previous->next = node->next;
-  else                           list->first = node->next;
+  if (list.first == nullptr) {
+    fin_ensure(list.last == nullptr);
+    list.first = node;
+    list.last  = node;
+  }
+  else {
+    node->next = list.first;
+    list.first = node;
+  }
 
-  if (node->next != nullptr) node->next->previous = node->previous;
-  else                       list->last = node->previous;
+  list.count += 1;
 
-  list->count--;
+  return node->value;
+}
 
-  return true;
+template <typename T>
+static T & list_push_front_copy (List<T> &list, List_Value<T> value) {
+  return list_push_front(list, move(value));
 }
 
 template <typename T>

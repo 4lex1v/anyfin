@@ -296,7 +296,7 @@ static Sys_Result<List<File_Path>> list_files (Memory_Arena &arena, File_Path di
 
   fin_check(list_recursive(directory));
 
-  return Ok(file_list);
+  return Ok(move(file_list));
 }
 
 static Sys_Result<void> copy_directory (File_Path from, File_Path to) {
@@ -459,6 +459,7 @@ static Sys_Result<u64> get_last_update_timestamp (const File &file) {
 static Sys_Result<File_Mapping> map_file_into_memory (const File &file) {
   auto [sys_error, mapping_size] = get_file_size(file);
   if (sys_error) return move(sys_error.value);
+  if (mapping_size == 0) return File_Mapping {};
   
   auto handle = CreateFileMapping(file.handle, nullptr, PAGE_READONLY, 0, 0, nullptr);
   if (!handle) return get_system_error();
