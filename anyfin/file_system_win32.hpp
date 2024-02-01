@@ -101,7 +101,7 @@ static Sys_Result<void> delete_resource (File_Path path, Resource_Type resource_
       if (RemoveDirectory(path.value)) return Ok();
 
       auto error_code = GetLastError();
-      if (error_code == ERROR_FILE_NOT_FOUND) return Ok();
+      if (error_code == ERROR_PATH_NOT_FOUND) return Ok();
       if (error_code == ERROR_DIR_NOT_EMPTY)  {
         auto delete_recursive = [] (this auto self, File_Path path) -> Sys_Result<void> {
           char buffer[2048];
