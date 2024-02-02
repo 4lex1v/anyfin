@@ -24,4 +24,8 @@ static u32 get_current_thread_id () {
   return GetCurrentThreadId();
 }
 
+static void thread_sleep (usize milliseconds) {
+  Sleep(milliseconds);
+}
+
 }

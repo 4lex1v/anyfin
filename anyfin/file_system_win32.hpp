@@ -101,6 +101,7 @@ static Sys_Result<void> delete_resource (File_Path path, Resource_Type resource_
       if (RemoveDirectory(path.value)) return Ok();
 
       auto error_code = GetLastError();
+      if (error_code == ERROR_FILE_NOT_FOUND) return Ok();
       if (error_code == ERROR_PATH_NOT_FOUND) return Ok();
       if (error_code == ERROR_DIR_NOT_EMPTY)  {
         auto delete_recursive = [] (this auto self, File_Path path) -> Sys_Result<void> {
@@ -348,9 +349,12 @@ static Sys_Result<File> open_file (File_Path path, Bit_Mask<File_System_Flags> f
 
   auto access  = GENERIC_READ    | ((flags & Write_Access) ? GENERIC_WRITE    : 0);
   auto sharing = FILE_SHARE_READ | ((flags & Shared_Write) ? FILE_SHARE_WRITE : 0); 
-  auto status  = (flags & Create_Missing) ? OPEN_ALWAYS : OPEN_EXISTING;
+
+  auto creation = OPEN_EXISTING;
+  if      (flags & Create_Missing) creation = OPEN_ALWAYS;
+  else if (flags & Always_New)     creation = CREATE_ALWAYS;
   
-  auto handle = CreateFile(path.value, access, sharing, NULL, status, FILE_ATTRIBUTE_NORMAL, NULL);
+  auto handle = CreateFile(path.value, access, sharing, NULL, creation, FILE_ATTRIBUTE_NORMAL, NULL);
   if (handle == INVALID_HANDLE_VALUE) return get_system_error();
 
   return File { handle, move(path) };

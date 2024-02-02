@@ -21,6 +21,8 @@ static Sys_Result<Thread> spawn_thread (const Invocable<void, T *> auto &proc, T
 
 static Sys_Result<void> shutdown_thread (Thread &thread);
 
+static void thread_sleep (usize milliseconds);
+
 static u32 get_current_thread_id ();
 
 }

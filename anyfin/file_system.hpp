@@ -65,7 +65,8 @@ enum struct File_System_Flags: u64 {
   Write_Access   = fin_flag(1),
   Shared_Write   = fin_flag(2),
   Create_Missing = fin_flag(3),
-  Force          = fin_flag(4),
+  Always_New     = fin_flag(4),
+  Force          = fin_flag(5),
 };
 
 /*

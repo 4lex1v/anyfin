@@ -32,6 +32,8 @@ constexpr Option<String> get_value (const Iterable<Startup_Argument> auto &args,
   return opt_none;
 }
 
+static String get_program_name ();
+
 static Array<Startup_Argument> get_startup_args (Memory_Arena &arena);
 
 }
