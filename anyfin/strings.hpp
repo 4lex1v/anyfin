@@ -101,7 +101,7 @@ constexpr String copy_string (Memory_Arena &arena, String other) {
   copy_memory(memory, other.value, other.length);
   memory[other.length] = '\0';
 
-  return String(memory, other.length);
+  return { memory, other.length };
 }
 
 constexpr String copy_string (Memory_Arena &arena, Byte_Type auto *bytes, usize count) {
@@ -110,6 +110,34 @@ constexpr String copy_string (Memory_Arena &arena, Byte_Type auto *bytes, usize 
 
 constexpr String copy_string (Memory_Arena &arena, Byte_Type auto *bytes) {
   return copy_string(arena, String(bytes));
+}
+
+constexpr String string_replace (Memory_Arena &arena, const String original, const String find, const String replace) {
+  if (!find.length || !original.length || find.length > original.length) return String(original.value, original.length);
+
+  usize max_possible_length = original.length + (replace.length > find.length ? (replace.length - find.length) * original.length / find.length : 0);
+  auto memory = reserve<char>(arena, max_possible_length + 1);
+  fin_ensure(memory);
+
+  if (!memory) return {};
+
+  usize output_index = 0;
+
+  usize i = 0;
+  while (i < original.length) {
+    if (i + find.length <= original.length && String(original.value + i, find.length) == find) {
+      for (usize j = 0; j < replace.length; ++j) {
+        memory[output_index++] = replace[j];
+      }
+      i += find.length;
+    } else {
+      memory[output_index++] = original[i++];
+    }
+  }
+
+  memory[output_index] = '\0';
+
+  return String(memory, output_index);
 }
 
 constexpr bool is_empty (String view) {
@@ -136,6 +164,18 @@ constexpr bool ends_with (String view, String end) {
   }
 
   return true; 
+}
+
+constexpr bool contains (const String original, const String substring) {
+  if (!substring.length || !original.length || substring.length > original.length) return false;
+
+  for (usize i = 0; i <= original.length - substring.length; ++i) {
+    if (String(original.value + i, substring.length) == substring) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 constexpr bool has_substring (String text, String value) {

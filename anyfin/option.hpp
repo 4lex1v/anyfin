@@ -57,9 +57,10 @@ struct Option {
   }
 
   fin_forceinline
-  constexpr Value_Type && or_default () {
-    return move(is_some() ? this->value : Value_Type {});
+  constexpr Value_Type && or_default (Value_Type default_value = {}) {
+    return move(is_some() ? this->value : default_value);
   }
+
 };
 
 }

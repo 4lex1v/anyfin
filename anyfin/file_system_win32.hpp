@@ -72,7 +72,7 @@ static Sys_Result<void> create_resource (File_Path path, const Resource_Type res
   }
 }
 
-static Sys_Result<bool> check_resource_exists (File_Path path, Resource_Type resource_type) {
+static Sys_Result<bool> check_resource_exists (File_Path path, Option<Resource_Type> resource_type) {
   const DWORD attributes = GetFileAttributes(path.value);
   if (attributes == INVALID_FILE_ATTRIBUTES) {
     const auto error_code = get_system_error_code();
@@ -81,7 +81,9 @@ static Sys_Result<bool> check_resource_exists (File_Path path, Resource_Type res
     return get_system_error();
   }
 
-  switch (resource_type) {
+  if (resource_type.is_none()) return true;
+
+  switch (resource_type.value) {
     case Resource_Type::File:      return Ok(!(attributes  & FILE_ATTRIBUTE_DIRECTORY));
     case Resource_Type::Directory: return Ok(!!(attributes & FILE_ATTRIBUTE_DIRECTORY));
   }
@@ -151,7 +153,7 @@ static Sys_Result<void> delete_resource (File_Path path, Resource_Type resource_
 static Sys_Result<String> get_resource_name (File_Path path) {
   fin_ensure(path.length < MAX_PATH);
 
-  usize idx = path.length - 1;
+  int idx = path.length - 1;
   for (; idx >= 0; idx--) {
     if (path[idx] == '\\' || path[idx] == '/') {
       auto after_separator = idx + 1;
@@ -298,6 +300,58 @@ static Sys_Result<List<File_Path>> list_files (Memory_Arena &arena, File_Path di
   fin_check(list_recursive(directory));
 
   return Ok(move(file_list));
+}
+
+static Sys_Result<void> copy_file (File_Path from, File_Path to) {
+  char buffer[2048];
+  Memory_Arena arena { buffer };
+
+  File_Path folder_path;
+  {
+    auto [sys_error, path] = get_folder_path(arena, to);
+    if (sys_error) return move(sys_error.value);
+
+    folder_path = path;
+  }
+
+  {
+    auto [sys_error, result] = check_directory_exists(folder_path);
+    if (sys_error) return move(sys_error.value);
+    if (!result) create_directory(folder_path);
+  }
+
+  if (!CopyFile(from.value, to.value, FALSE)) {
+    return get_system_error();
+  }
+    
+  return Ok();
+}
+
+static Sys_Result<bool> is_file (File_Path path) {
+  DWORD attributes = GetFileAttributes(path.value);
+  if (attributes == INVALID_FILE_ATTRIBUTES) return get_system_error();
+  if (!(attributes & FILE_ATTRIBUTE_DIRECTORY)) return true;
+    
+  return false;
+}
+
+static bool has_file_extension (File_Path path) {
+  for (int i = path.length - 1; i >= 0; --i) {
+    if (path.value[i] == '.') {
+      if (i > 0 && i < path.length - 1) return true;
+      break;
+    }
+  }
+
+  return false;
+}
+
+static Sys_Result<bool> is_directory(File_Path path) {
+  DWORD attributes = GetFileAttributes(path.value);
+  if (attributes == INVALID_FILE_ATTRIBUTES) return get_system_error();
+  if (attributes & FILE_ATTRIBUTE_DIRECTORY) return true;
+
+  return false;
 }
 
 static Sys_Result<void> copy_directory (File_Path from, File_Path to) {
