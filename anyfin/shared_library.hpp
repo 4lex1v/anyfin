@@ -21,6 +21,8 @@ static Sys_Result<T *> lookup_symbol (const Shared_Library &library, const Strin
 #ifndef FIN_SHARED_LIBRARY_HPP_IMPL
   #ifdef PLATFORM_WIN32
     #include "shared_library_win32.hpp"
+  #elif PLATFORM_UNIX
+    #include "shared_library_unix.hpp"
   #else
     #error "Unsupported platform"
   #endif

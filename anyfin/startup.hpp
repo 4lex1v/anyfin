@@ -41,6 +41,8 @@ static Array<Startup_Argument> get_startup_args (Memory_Arena &arena);
 #ifndef FIN_STARTUP_HPP_IMPL
   #ifdef PLATFORM_WIN32
     #include "anyfin/startup_win32.hpp"
+  #elif PLATFORM_UNIX
+    #include "anyfin/startup_unix.hpp"
   #else
     #error "Unsupported platform"
   #endif

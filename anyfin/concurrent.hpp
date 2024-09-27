@@ -42,6 +42,8 @@ static Sys_Result<void> wait_for_semaphore_signal (const Semaphore &sempahore);
 #ifndef FIN_CONCURRENT_HPP_IMPL
   #ifdef PLATFORM_WIN32
     #include "anyfin/concurrent_win32.hpp"
+  #elif PLATFORM_UNIX
+    #include "anyfin/concurrent_unix.hpp"
   #else
     #error "Unsupported platform"
   #endif

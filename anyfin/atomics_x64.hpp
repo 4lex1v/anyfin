@@ -20,7 +20,7 @@ static T atomic_load (const Atomic<T> &atomic) {
   static_assert(sizeof(T) <= sizeof(void*));
   static_assert((order == Relaxed) || (order == Acquire) || (order == Sequential));
 
-  if constexpr (order == Sequential) fin_memory_fence();
+  fin_compiler_barrier();
   auto result = atomic.value;
   if constexpr (order != Relaxed) fin_compiler_barrier();
 
@@ -49,6 +49,8 @@ static void atomic_store (Atomic<T> &atomic, Atomic_Value<T> value) {
       : "memory"
     );
   }
+
+  if (order == Sequential) fin_compiler_barrier();
 }
 
 template <Memory_Order order = Memory_Order::Relaxed, typename T>

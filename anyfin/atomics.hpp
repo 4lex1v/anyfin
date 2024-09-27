@@ -54,6 +54,8 @@ using causize = Aligned_Atomic<usize>;
 #ifndef FIN_ATOMICS_HPP_IMPL
   #ifdef CPU_ARCH_X64
     #include "anyfin/atomics_x64.hpp"
+  #elif CPU_ARCH_ARM64
+    #include "anyfin/atomics_arm64.hpp"
   #else
     #error "Unsupported CPU architecture"
   #endif

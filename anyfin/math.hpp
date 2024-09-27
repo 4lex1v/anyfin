@@ -2,10 +2,7 @@
 #pragma once
 
 #include "anyfin/base.hpp"
-
 #include "anyfin/prelude.hpp"
-
-#include <intrin.h>
 
 namespace Fin {
 
@@ -19,22 +16,6 @@ template<typename T>
 constexpr T cube (T a) {
   const T result = a * a * a;
   return result;
-}
-
-static inline u32 round_up_to_u32 (const f32 value) {
-  return (u32) _mm_cvtss_si32(_mm_ceil_ss(_mm_setzero_ps(), _mm_set_ss(value)));
-}
-
-static inline u32 round_down_to_u32 (const f32 value) {
-  return (u32) _mm_cvtss_si32(_mm_floor_ss(_mm_setzero_ps(), _mm_set_ss(value)));
-}
-
-static inline s32 round_up_to_s32 (const f32 value) {
-  return _mm_cvtss_si32(_mm_ceil_ss(_mm_setzero_ps(), _mm_set_ss(value)));
-}
-
-static inline s32 round_down_to_s32 (const f32 value) {
-  return _mm_cvtss_si32(_mm_floor_ss(_mm_setzero_ps(), _mm_set_ss(value)));
 }
 
 static inline u32 round_up_to_pow_2 (u32 value) {

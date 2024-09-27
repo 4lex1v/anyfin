@@ -18,6 +18,8 @@ static Sys_Result<System_Command_Status> run_system_command (Memory_Arena &arena
 #ifndef FIN_COMMANDS_HPP_IMPL
   #ifdef PLATFORM_WIN32
     #include "anyfin/commands_win32.hpp"
+  #elif PLATFORM_UNIX
+    #include "anyfin/commands_unix.hpp"
   #else
     #error "Unsupported platform"
   #endif

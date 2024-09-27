@@ -13,6 +13,7 @@ namespace Fin {
 
 enum struct Platform {
   Win32,
+  Unix
 };
 
 static Platform get_platform_type ();
@@ -73,6 +74,8 @@ static auto to_string (const System_Error &error, Memory_Arena &arena) {
 #ifndef FIN_PLATFORM_HPP_IMPL
   #ifdef PLATFORM_WIN32
     #include "anyfin/platform_win32.hpp"
+  #elif PLATFORM_UNIX
+    #include "anyfin/platform_unix.hpp"
   #else
     #error "Unsupported platform"
   #endif

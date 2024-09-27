@@ -211,6 +211,8 @@ static Sys_Result<void> unmap_file (File_Mapping &mapping);
 #ifndef FIN_FILE_SYSTEM_HPP_IMPL
   #ifdef PLATFORM_WIN32
     #include "anyfin/file_system_win32.hpp"
+  #elif PLATFORM_UNIX
+    #include "anyfin/file_system_unix.hpp"
   #else
     #error "Unsupported platform"
   #endif

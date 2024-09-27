@@ -12,6 +12,8 @@ namespace Fin {
 #ifndef FIN_PROCESS_HPP_IMPL
   #ifdef PLATFORM_WIN32
     #include "anyfin/process_win32.hpp"
+  #elif PLATFORM_UNIX
+    #include "anyfin/process_unix.hpp"
   #else
     #error "Unsupported platform"
   #endif

@@ -30,6 +30,8 @@ static u32 get_current_thread_id ();
 #ifndef FIN_THREADS_HPP_IMPL
   #ifdef PLATFORM_WIN32
     #include "anyfin/threads_win32.hpp"
+  #elif PLATFORM_UNIX
+    #include "anyfin/threads_unix.hpp"
   #else
     #error "Unsupported platform"
   #endif

@@ -23,6 +23,8 @@ static u64 get_elapsed_millis (u64 frequency, u64 from, u64 to);
 #ifndef FIN_TIMERS_HPP_IMPL
   #ifdef PLATFORM_WIN32
     #include "anyfin/timers_win32.hpp"
+  #elif PLATFORM_UNIX
+    #include "anyfin/timers_unix.hpp"
   #else
     #error "Unsupported platform"
   #endif
