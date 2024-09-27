@@ -6,25 +6,6 @@
 
 namespace Fin {
 
-static Sys_Result<System_Command_Status> run_system_command (Memory_Arena &arena) {
-  SECURITY_ATTRIBUTES security { .nLength = sizeof(SECURITY_ATTRIBUTES), .bInheritHandle = TRUE };
-  STARTUPINFO info { .cb = sizeof(STARTUPINFO) };
-
-  PROCESS_INFORMATION process {};
-  if (!CreateProcess(nullptr, nullptr, &security, &security, TRUE, 0, NULL, NULL, &info, &process))
-    return get_system_error();
-
-  WaitForSingleObject(process.hProcess, INFINITE);
-
-  DWORD exit_code = 0;
-  GetExitCodeProcess(process.hProcess, &exit_code);
-
-  CloseHandle(process.hThread);
-  CloseHandle(process.hProcess);
-
-  return System_Command_Status { .status_code = exit_code };
-}
-
 static Sys_Result<System_Command_Status> run_system_command (Memory_Arena &arena, String command_line) {
   SECURITY_ATTRIBUTES security { .nLength = sizeof(SECURITY_ATTRIBUTES), .bInheritHandle = TRUE };
  
@@ -99,7 +80,7 @@ static Sys_Result<System_Command_Status> run_system_command (Memory_Arena &arena
    */
   WaitForSingleObject(process.hProcess, INFINITE);
 
-  if (!output_size) return Ok(System_Command_Status { .status_code = exit_code });
+  if (!output_size) return Ok(System_Command_Status { .status_code = static_cast<s32>(exit_code) });
 
   /*
     For some reason Windows includes CRLF at the end of the output, which is inc
@@ -109,7 +90,7 @@ static Sys_Result<System_Command_Status> run_system_command (Memory_Arena &arena
 
   return Ok(System_Command_Status {
     .output      = String(output_buffer, output_size),
-    .status_code = exit_code,
+    .status_code = static_cast<s32>(exit_code),
   });
 }
 

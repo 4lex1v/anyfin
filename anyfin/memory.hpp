@@ -5,8 +5,8 @@
 #include "anyfin/meta.hpp" // for the is_pointer check is align function
 
 extern "C" {
-void * memset (void *destination, int value, size_t count);
-void * memcpy (void *destination, const void *source, size_t count);
+void * memset (void *destination, int value, usize count);
+void * memcpy (void *destination, const void *source, usize count);
 }
 
 namespace Fin {

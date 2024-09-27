@@ -19,7 +19,7 @@ using b64 = u64;
 using f32 = float;
 using f64 = double;
 
-using usize = size_t;
+using usize = decltype(sizeof(void *));
 
 #define tokenpaste2(X, Y) X##Y
 #define tokenpaste(X, Y) tokenpaste2(X, Y)

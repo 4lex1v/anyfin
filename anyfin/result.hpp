@@ -82,7 +82,7 @@ struct Result<E, void> {
   constexpr Result (Error<E>&& error): error { move(error.value) } {}
   constexpr Result (Error_Type &&status): error { move(status) } {}
 
-  constexpr Result (Ok<void>&& ok): error {} {}
+  constexpr Result (Ok<void>&&): error {} {}
 
   constexpr bool is_ok    (this const auto &self) { return self.error.is_none(); }
   constexpr bool is_error (this const auto &self) { return self.error.is_some(); }
