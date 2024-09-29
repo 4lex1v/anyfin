@@ -1,9 +1,11 @@
 
 #define FIN_PLATFORM_HPP_IMPL
 
+#include "anyfin/win32.hpp"
+#include <shellapi.h>
+
 #include "anyfin/strings.hpp"
 #include "anyfin/platform.hpp"
-#include "anyfin/win32.hpp"
 
 namespace Fin {
 
@@ -51,6 +53,24 @@ static Sys_Result<Option<String>> get_env_var (Memory_Arena &arena, String name)
   fin_ensure(env_value_length == (reservation_size - 1));
 
   return Option(String(env_value_buffer, env_value_length));
+}
+
+static Sys_Result<Option<String>> find_executable (Memory_Arena &arena, String name) {
+  char path[MAX_PATH] {};
+  auto status = reinterpret_cast<usize>(FindExecutable(name.value, nullptr, path));
+
+  switch (status) {
+    case SE_ERR_FNF:          return Error(System_Error("The specified file was not found.", SE_ERR_FNF));
+    case SE_ERR_PNF:          return Error(System_Error("The specified path is invalid.", SE_ERR_PNF));
+    case SE_ERR_ACCESSDENIED: return Error(System_Error("The specified file cannot be accessed.", SE_ERR_ACCESSDENIED));
+    case SE_ERR_OOM:          return Error(System_Error("The system is out of memory or resources.", SE_ERR_OOM));
+    case SE_ERR_NOASSOC:      return Error(System_Error("There is no association for the specified file type with an executable file.", SE_ERR_NOASSOC));
+  }
+
+  // Not exactly sure if the above table fully covers all possible errors from FindExectuable
+  if (status <= 32) return Error(System_Error("Executable wasn't found on the host system.", status));
+
+  return Option(copy_string(arena, path, get_string_length(path)));
 }
 
 }

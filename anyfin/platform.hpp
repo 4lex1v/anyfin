@@ -34,6 +34,8 @@ static u32 get_logical_cpu_count ();
 
 static Sys_Result<Option<String>> get_env_var (Memory_Arena &arena, String name);
 
+static Sys_Result<Option<String>> find_executable (Memory_Arena &arena, String name);
+
 static auto to_string (const System_Error &error, Memory_Arena &arena) {
   auto string = get_memory_at_current_offset(arena);
 
