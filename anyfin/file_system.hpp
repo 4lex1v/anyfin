@@ -22,12 +22,12 @@ using File_Path = String;
 
 /*
   Construct a platform-dependent file path.
-  Path separator is platform-dependent, i.e for Windows it's \, while for Unix systems - /.
+  Path separator is platform-dependent, i.e. for Windows it's \, while for Unix systems - /.
  */
 constexpr File_Path make_file_path (Memory_Arena &arena, String segment, Convertible_To<String> auto&&... other) {
   String segments[] { segment, other... };
 
-  auto reservation_size = array_count_elements(segments);
+  auto reservation_size = count(segments);
   for (auto &s: segments) reservation_size += s.length;
 
   char *buffer = reserve<char>(arena, reservation_size);
@@ -87,7 +87,7 @@ static Sys_Result<void> create_directory (File_Path path, Bit_Mask<File_System_F
   Check if the file pointed by the provided path exists on the file system.
   Returns true or false if the resource exists of not.
  */
-static Sys_Result<bool> check_resource_exists (File_Path path, Resource_Type resource_type) ;
+static Sys_Result<bool> check_resource_exists (File_Path path, Option<Resource_Type> resource_type = {}) ;
 
 /*
   Check if the provided path corresponds to an existing file on the file system.
@@ -102,6 +102,21 @@ static Sys_Result<bool> check_file_exists (File_Path path) {
 static Sys_Result<bool> check_directory_exists (File_Path path) {
   return check_resource_exists(path, Resource_Type::Directory);
 }
+
+/*
+  Check whether the path refers to a file by ensuring it’s not a directory and that the file exists.
+ */
+static Sys_Result<bool> is_file (File_Path path);
+
+/*
+  Check if provided path has extension
+ */
+static bool has_file_extension (File_Path path);
+
+/*
+  Check whether the given path refers to a directory.
+ */
+static Sys_Result<bool> is_directory (File_Path path);
 
 /*
   Delete resource pointed by the path.
@@ -143,6 +158,8 @@ static Sys_Result<void> set_working_directory (File_Path path);
 static Sys_Result<void> for_each_file (File_Path directory, String extension, bool recursive, const Invocable<bool, File_Path> auto &func);
 
 static Sys_Result<List<File_Path>> list_files (Memory_Arena &arena, File_Path directory, String extension = {}, bool recursive = false);
+
+static Sys_Result<void> copy_file (File_Path from, File_Path to);
 
 static Sys_Result<void> copy_directory (File_Path from, File_Path to);
 

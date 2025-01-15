@@ -72,7 +72,7 @@ static Sys_Result<void> create_resource (File_Path path, const Resource_Type res
   }
 }
 
-static Sys_Result<bool> check_resource_exists (File_Path path, Resource_Type resource_type) {
+static Sys_Result<bool> check_resource_exists (File_Path path, Option<Resource_Type> resource_type) {
   const DWORD attributes = GetFileAttributes(path.value);
   if (attributes == INVALID_FILE_ATTRIBUTES) {
     const auto error_code = get_system_error_code();
@@ -81,7 +81,9 @@ static Sys_Result<bool> check_resource_exists (File_Path path, Resource_Type res
     return get_system_error();
   }
 
-  switch (resource_type) {
+  if (resource_type.is_none()) return true;
+
+  switch (resource_type.value.get()) {
     case Resource_Type::File:      return Ok(!(attributes  & FILE_ATTRIBUTE_DIRECTORY));
     case Resource_Type::Directory: return Ok(!!(attributes & FILE_ATTRIBUTE_DIRECTORY));
   }
@@ -116,7 +118,8 @@ static Sys_Result<void> delete_resource (File_Path path, Resource_Type resource_
           defer { FindClose(search_handle); };
 
           while (true) {
-            auto scoped_arena = arena;
+            Memory_Arena scoped_arena;
+            copy_arena(scoped_arena, arena);
 
             auto file_name = String(cast_bytes(data.cFileName));
             if ((file_name != "." && file_name != "..")) {
@@ -151,7 +154,7 @@ static Sys_Result<void> delete_resource (File_Path path, Resource_Type resource_
 static Sys_Result<String> get_resource_name (File_Path path) {
   fin_ensure(path.length < MAX_PATH);
 
-  usize idx = path.length - 1;
+  int idx = path.length - 1;
   for (; idx >= 0; idx--) {
     if (path[idx] == '\\' || path[idx] == '/') {
       auto after_separator = idx + 1;
@@ -237,7 +240,8 @@ static Sys_Result<void> for_each_file (File_Path directory, String extension, bo
     defer { FindClose(search_handle); };
 
     do {
-      auto local = arena;
+      Memory_Arena local;
+      copy_arena(local, arena);
       
       const auto file_name = String(cast_bytes(data.cFileName));
       if (file_name == "." || file_name == "..") continue;
@@ -264,40 +268,95 @@ static Sys_Result<void> for_each_file (File_Path directory, String extension, bo
 }
 
 static Sys_Result<List<File_Path>> list_files (Memory_Arena &arena, File_Path directory, String extension, bool recursive) {
-  List<File_Path> file_list { arena };
+  List<File_Path> file_list;
 
-  auto list_recursive = [&] (this auto self, File_Path directory) -> Sys_Result<void> {
-    WIN32_FIND_DATAA data;
+  auto list_recursive = [&] (this auto self, Memory_Arena &local, File_Path directory) -> Sys_Result<void> {
+      WIN32_FIND_DATAA data;
 
-    auto query = concat_string(arena, directory, "\\*");
+      auto query = concat_string(local, directory, "\\*");
 
-    auto search_handle = FindFirstFile(query, &data);
-    if (search_handle == INVALID_HANDLE_VALUE) return Error(get_system_error());
-    defer { FindClose(search_handle); };
+      auto search_handle = FindFirstFile(query, &data);
+      if (search_handle == INVALID_HANDLE_VALUE) return get_system_error();
+      defer { FindClose(search_handle); };
 
-    do {
-      auto local = arena;
+      do {
+        Memory_Arena scoped;
+        copy_arena(scoped, local);
       
-      const auto file_name = String(cast_bytes(data.cFileName));
-      if (file_name == "." || file_name == "..") continue;
+        const auto file_name = String(cast_bytes(data.cFileName));
+        if (file_name == "." || file_name == "..") continue;
 
-      if (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-        if (recursive) fin_check(self(local, concat_string(local, directory, "\\", file_name)));
-      }
-      else {
-        if (!ends_with(file_name, extension)) continue;
+        if (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+          if (recursive) fin_check(self(scoped, concat_string(scoped, directory, "\\", file_name)));
+        }
+        else {
+          if (!ends_with(file_name, extension)) continue;
           
-        auto file_path = concat_string(local, directory, "\\", file_name);
-        if (!file_list.contains(file_path)) list_push(file_list, file_path);
-      }
-    } while (FindNextFileA(search_handle, &data) != 0);
+          auto file_path = concat_string(scoped, directory, "\\", file_name);
+          if (!file_list.contains(file_path)) list_push_copy(arena, file_list, file_path);
+        }
+      } while (FindNextFileA(search_handle, &data) != 0);
 
-    return Ok();
+      return Ok();
   };
 
-  fin_check(list_recursive(directory));
+  char buffer[2048];
+  Memory_Arena local(buffer);
+  fin_check(list_recursive(local, directory));
 
   return Ok(move(file_list));
+}
+
+static Sys_Result<void> copy_file (File_Path from, File_Path to) {
+  char buffer[2048];
+  Memory_Arena arena { buffer };
+
+  File_Path folder_path;
+  {
+    auto [sys_error, path] = get_folder_path(arena, to);
+    if (sys_error) return sys_error.take();
+
+    folder_path = path.take();
+  }
+
+  {
+    auto [sys_error, result] = check_directory_exists(folder_path);
+    if (sys_error) return sys_error.take();
+    if (!result.get()) create_directory(folder_path);
+  }
+
+  if (!CopyFile(from.value, to.value, FALSE)) {
+    return get_system_error();
+  }
+    
+  return Ok();
+}
+
+static Sys_Result<bool> is_file (File_Path path) {
+  DWORD attributes = GetFileAttributes(path.value);
+  if (attributes == INVALID_FILE_ATTRIBUTES) return get_system_error();
+  if (!(attributes & FILE_ATTRIBUTE_DIRECTORY)) return true;
+    
+  return false;
+}
+
+static bool has_file_extension (File_Path path) {
+  for (int i = path.length - 1; i >= 0; --i) {
+    if (path.value[i] == '.') {
+      if (i > 0 && i < path.length - 1) return true;
+      break;
+    }
+  }
+
+  return false;
+}
+
+static Sys_Result<bool> is_directory(File_Path path) {
+  DWORD attributes = GetFileAttributes(path.value);
+  if (attributes == INVALID_FILE_ATTRIBUTES) return get_system_error();
+  if (attributes & FILE_ATTRIBUTE_DIRECTORY) return true;
+
+  return false;
 }
 
 static Sys_Result<void> copy_directory (File_Path from, File_Path to) {
@@ -313,7 +372,8 @@ static Sys_Result<void> copy_directory (File_Path from, File_Path to) {
     defer { FindClose(search_handle); };
 
     while (true) {
-      auto scoped_arena = arena;
+      Memory_Arena scoped_arena;
+      copy_arena(scoped_arena, arena);
 
       auto file_name = String(cast_bytes(find_file_data.cFileName));
       if (file_name != "." && file_name != "..") {
@@ -424,8 +484,10 @@ static Sys_Result<void> read_bytes_into_buffer (File &file, u8 *buffer, usize by
 static Sys_Result<Array<u8>> get_file_content (Memory_Arena &arena, File &file) {
   fin_check(reset_file_cursor(file));
 
-  auto [sys_error, file_size] = get_file_size(file);
-  if (sys_error)  return move(sys_error.value);
+  auto [sys_error, file_size_value] = get_file_size(file);
+  if (sys_error)  return sys_error.take();
+
+  auto file_size = file_size_value.take();
   if (!file_size) return Ok(Array<u8> {});
 
   auto buffer = reserve_array<u8>(arena, file_size, alignof(u8));
@@ -433,7 +495,7 @@ static Sys_Result<Array<u8>> get_file_content (Memory_Arena &arena, File &file) 
   usize offset = 0;
   while (offset < file_size) {
     DWORD bytes_read = 0;
-    if (!ReadFile(file.handle, buffer.values + offset, file_size - offset, &bytes_read, NULL))
+    if (!ReadFile(file.handle, buffer.values + offset, file_size - offset, &bytes_read, nullptr))
       return get_system_error();
 
     offset += bytes_read;
@@ -462,8 +524,8 @@ static Sys_Result<u64> get_last_update_timestamp (const File &file) {
 
 static Sys_Result<File_Mapping> map_file_into_memory (const File &file) {
   auto [sys_error, mapping_size] = get_file_size(file);
-  if (sys_error) return move(sys_error.value);
-  if (mapping_size == 0) return File_Mapping {};
+  if (sys_error) return sys_error.take();
+  if (mapping_size.get() == 0) return File_Mapping {};
   
   auto handle = CreateFileMapping(file.handle, nullptr, PAGE_READONLY, 0, 0, nullptr);
   if (!handle) return get_system_error();
@@ -477,7 +539,7 @@ static Sys_Result<File_Mapping> map_file_into_memory (const File &file) {
   return File_Mapping {
     .handle = handle,
     .memory = reinterpret_cast<char *>(memory),
-    .size   = mapping_size
+    .size   = mapping_size.get()
   };
 }
 

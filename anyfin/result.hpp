@@ -3,6 +3,7 @@
 
 #include "anyfin/meta.hpp"
 #include "anyfin/option.hpp"
+#include "anyfin/uninit.hpp"
 
 namespace Fin {
 
@@ -53,7 +54,7 @@ struct Result {
   using Value_Type = remove_ref<T>;
 
   Option<Error_Type> error;
-  Value_Type value;
+  Uninit<Value_Type> value; // won't be initialized in error cases
 
   constexpr Result (Error<E>&& error):    error { move(error.value) } {}
   constexpr Result (Error_Type &&status): error { move(status)      } {}
@@ -82,7 +83,7 @@ struct Result<E, void> {
   constexpr Result (Error<E>&& error): error { move(error.value) } {}
   constexpr Result (Error_Type &&status): error { move(status) } {}
 
-  constexpr Result (Ok<void>&& ok): error {} {}
+  constexpr Result (Ok<void>&&): error {} {}
 
   constexpr bool is_ok    (this const auto &self) { return self.error.is_none(); }
   constexpr bool is_error (this const auto &self) { return self.error.is_some(); }
@@ -94,7 +95,7 @@ struct Result<E, void> {
 #define fin_check(RESULT)                               \
   do {                                                  \
     if (auto result = (RESULT); result.is_error())      \
-      return ::Fin::Error(::Fin::move(result.error.value));  \
+      return ::Fin::Error(result.error.take());  \
   } while (0)
 
 }

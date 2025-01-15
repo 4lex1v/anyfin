@@ -19,7 +19,7 @@ using b64 = u64;
 using f32 = float;
 using f64 = double;
 
-using usize = size_t;
+using usize = decltype(sizeof(void *));
 
 #define tokenpaste2(X, Y) X##Y
 #define tokenpaste(X, Y) tokenpaste2(X, Y)
@@ -29,7 +29,7 @@ using usize = size_t;
 
 #define fin_flag(N) 1 << (N)
 
-#define fin_forceinline __attribute__((always_inline))
+#define fin_forceinline [[clang::always_inline]]
 
 #ifdef DEV_BUILD
   #define fin_ensure(EXPR) do { if (!static_cast<bool>(EXPR)) __builtin_debugtrap(); } while (0)

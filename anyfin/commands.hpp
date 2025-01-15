@@ -8,10 +8,8 @@ namespace Fin {
 
 struct System_Command_Status {
   String output;
-  u32    status_code;
+  s32    status_code;
 };
-
-static Sys_Result<System_Command_Status> run_system_command (Memory_Arena &arena);
 
 static Sys_Result<System_Command_Status> run_system_command (Memory_Arena &arena, String command_line);
 

@@ -1,9 +1,10 @@
 
 #pragma once
 
-#include "anyfin/arena.hpp"
+#include "anyfin/allocator.hpp"
+#include "anyfin/array.hpp"
 #include "anyfin/base.hpp"
-#include "anyfin/slice.hpp"
+#include "anyfin/list.hpp"
 
 namespace Fin {
 
@@ -11,13 +12,18 @@ template <typename T>
 struct Seq {
   using Value_Type = T;
 
-  T     *values     = nullptr;
-  usize  count    = 0;
-  usize  capacity = 0;
+  Allocator allocator;
+  T *memory = nullptr;
 
-  fin_forceinline constexpr Seq () = default;
-  fin_forceinline constexpr Seq (T *memory, usize _capacity)
-    : values { memory }, capacity { _capacity } {}
+  usize count    = 0;
+  usize capacity = 0;
+
+  constexpr Seq () {}
+
+  fin_forceinline constexpr Seq (Allocator _allocator): allocator { _allocator } {}
+
+  fin_forceinline constexpr Seq (Allocator _allocator, usize default_capacity = 16):
+    allocator { _allocator }, capacity { default_capacity } {}
 
   fin_forceinline
   constexpr decltype(auto) operator [] (this auto &&self, usize offset) {
@@ -25,36 +31,46 @@ struct Seq {
     return self.values[offset];
   }
 
-  fin_forceinline
-  constexpr operator Slice<T> (this auto &&self) {
-    return Slice(self.values, self.count);
+  bool needs_growth () const {
+    return this->count >= this->capacity;
   }
+
+  void grow () {
+    fin_ensure(this->count == this->capacity);
+    this->current = &list_push(this->blocks, {});
+  }
+
 };
 
 template <typename T>
-fin_forceinline
 static void seq_push (Seq<T> &seq, typename Seq<T>::Value_Type &&value) {
-  seq[seq.count] = move(value);
-  seq.count     += 1;
+  if (seq.needs_growth()) [[unlikely]] seq.grow();
+  seq.memory[seq.count++] = move(value);
 }
 
 template <typename T>
-fin_forceinline
 static void seq_push_copy (Seq<T> &seq, const typename Seq<T>::Value_Type &value) {
-  seq[seq.count] = value;
-  seq.count     += 1;
+  using VT = typename Seq<T>::Value_Type;
+  set_push(seq, V(value));
 }
 
 template <typename T>
-static Seq<T> reserve_seq (Memory_Arena &arena, usize count, usize alignment = alignof(T)) {
-  if (count == 0) return {};
+static decltype(auto) seq_get (Seq<T> &seq, usize offset) {
+  if (offset > seq.count) return nullptr;
 
-  auto memory = reserve<T>(arena, count * sizeof(T), alignment);
-  fin_ensure(memory);
-
-  if (!memory) return {};
-
-  return Seq(memory, count);
+  usize block_index = offset / seq.block_size;
 }
+
+// template <typename T>
+// static Seq<T> reserve_seq (Memory_Arena &arena, usize count, usize alignment = alignof(T)) {
+//   if (count == 0) return {};
+
+//   auto memory = reserve<T>(arena, count * sizeof(T), alignment);
+//   fin_ensure(memory);
+
+//   if (!memory) return {};
+
+//   return Seq(memory, count);
+// }
 
 }

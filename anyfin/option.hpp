@@ -3,6 +3,7 @@
 
 #include "anyfin/base.hpp"
 #include "anyfin/meta.hpp"
+#include "anyfin/uninit.hpp"
 
 namespace Fin {
 
@@ -14,14 +15,15 @@ struct Option {
   using Value_Type = T;
 
   bool has_value = false;
-  T    value;
+  Uninit<T> value;
 
   fin_forceinline constexpr Option () = default;
-  fin_forceinline constexpr Option (None): has_value { false } {}
+  fin_forceinline constexpr Option (None) {}
 
-  fin_forceinline
-  constexpr Option (Value_Type &&_value)
-    : has_value { true }, value { _value } {}
+  fin_forceinline constexpr Option (Value_Type &&_value):
+    has_value { true },
+    value     { Fin::move(_value) }
+  {}
 
   fin_forceinline
   constexpr Option (Option<T> &&other)
@@ -57,9 +59,14 @@ struct Option {
   }
 
   fin_forceinline
-  constexpr Value_Type && or_default () {
-    return move(is_some() ? this->value : Value_Type {});
+  constexpr Value_Type && or_default (Value_Type default_value = {}) {
+    return is_some() ? this->value.take() : Fin::move(default_value);
   }
+
+  fin_forceinline Value_Type && take () {
+    return this->value.take();
+  }
+
 };
 
 }

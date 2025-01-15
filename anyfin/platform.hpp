@@ -34,12 +34,14 @@ static u32 get_logical_cpu_count ();
 
 static Sys_Result<Option<String>> get_env_var (Memory_Arena &arena, String name);
 
+static Sys_Result<Option<String>> find_executable (Memory_Arena &arena, String name);
+
 static auto to_string (const System_Error &error, Memory_Arena &arena) {
   auto string = get_memory_at_current_offset(arena);
 
   {
     const char msg[] = "system error(";
-    auto msg_len = array_count_elements(msg) - 1;
+    auto msg_len = count(msg) - 1;
     auto buffer = reserve<char>(arena, msg_len);
 
     copy_memory(buffer, msg, msg_len);
